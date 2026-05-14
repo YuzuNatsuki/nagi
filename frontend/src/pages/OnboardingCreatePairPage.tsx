@@ -6,7 +6,7 @@ import { RELATIONSHIP_TAG_OPTIONS } from "../domain/relationship-tags.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingCreatePairPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [pairDisplayName, setPairDisplayName] = useState("");
   const [relationshipTag, setRelationshipTag] = useState<RelationshipTagId>("family");
@@ -34,7 +34,7 @@ export function OnboardingCreatePairPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   async function onSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();

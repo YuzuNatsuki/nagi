@@ -95,7 +95,7 @@ function TileGrid({
 }
 
 export function AppHomePage(): ReactElement {
-  const { api, apiUserReady, firebaseUid, userId } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [approvalPairId, setApprovalPairId] = useState<string | null>(null);
   const [homeMe, setHomeMe] = useState<MeResponse | null>(null);
@@ -160,7 +160,7 @@ export function AppHomePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12 transition-opacity duration-500 md:py-16">

@@ -21,7 +21,7 @@ function formatWhen(iso: string): string {
 }
 
 export function AppNotificationsPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [rows, setRows] = useState<NotificationHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,7 +53,7 @@ export function AppNotificationsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void reload();
@@ -112,7 +112,7 @@ export function AppNotificationsPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 transition-opacity duration-500">

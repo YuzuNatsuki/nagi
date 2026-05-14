@@ -19,7 +19,7 @@ function membershipLabel(state: PairSummary["membershipState"]): string {
 }
 
 export function AppSettingsPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ export function AppSettingsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void reload();
@@ -79,7 +79,7 @@ export function AppSettingsPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   const pair = me?.pair ?? null;
 

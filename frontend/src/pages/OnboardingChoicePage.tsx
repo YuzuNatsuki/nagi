@@ -6,7 +6,7 @@ import { routeAfterMe } from "../lib/me-navigation.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingChoicePage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export function OnboardingChoicePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   const canNavigate = apiUserReady;
 

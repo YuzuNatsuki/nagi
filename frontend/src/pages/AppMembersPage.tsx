@@ -38,7 +38,7 @@ const retentionChoices: { value: ChatRetentionChoice; title: string; note: strin
 ];
 
 export function AppMembersPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [members, setMembers] = useState<PairMembersResponseBody["members"]>([]);
   const [chatRetention, setChatRetention] = useState<ChatRetentionChoice>("30days");
@@ -79,7 +79,7 @@ export function AppMembersPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void reload();
@@ -111,7 +111,7 @@ export function AppMembersPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   async function onSave(): Promise<void> {
     if (!apiUserReady) {

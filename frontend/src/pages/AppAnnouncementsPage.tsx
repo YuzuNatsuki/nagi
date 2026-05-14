@@ -19,7 +19,7 @@ function formatPublished(iso: string): string {
 }
 
 export function AppAnnouncementsPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const [rows, setRows] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function AppAnnouncementsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, userId, firebaseUid]);
+  }, [api, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void reload();

@@ -14,7 +14,7 @@ function stateLabel(state: PairSummary["membershipState"]): string {
 }
 
 export function AppPairsPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [rows, setRows] = useState<PairSummary[]>([]);
   const [activePairId, setActivePairId] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function AppPairsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, userId, firebaseUid]);
+  }, [api, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void reload();
@@ -74,7 +74,7 @@ export function AppPairsPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   const onSelect = useCallback(
     async (pairId: string) => {

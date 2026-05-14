@@ -14,7 +14,7 @@ function formatExpiresAt(iso: string): string {
 
 export function OnboardingPairInvitePage(): ReactElement {
   const { pairId } = useParams();
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [data, setData] = useState<PairInviteResponseBody | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function OnboardingPairInvitePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, userId, firebaseUid]);
+  }, [api, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     if (pairId === undefined || pairId === "") {
@@ -77,7 +77,7 @@ export function OnboardingPairInvitePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, pairId, userId, firebaseUid]);
+  }, [api, pairId, apiUserReady, firebaseUid]);
 
   const onCopy = useCallback(async () => {
     if (data === null) {

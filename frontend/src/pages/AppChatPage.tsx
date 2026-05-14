@@ -28,7 +28,7 @@ function formatTime(iso: string): string {
 }
 
 export function AppChatPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [members, setMembers] = useState<PairMembersResponseBody["members"]>([]);
   const [topicUserId, setTopicUserId] = useState("");
@@ -71,7 +71,7 @@ export function AppChatPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void reloadMessages();
@@ -103,7 +103,7 @@ export function AppChatPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

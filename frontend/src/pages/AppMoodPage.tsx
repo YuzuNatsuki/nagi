@@ -28,7 +28,7 @@ function formatSavedAt(iso: string): string {
 }
 
 export function AppMoodPage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(() => localCalendarDay());
   const [draft, setDraft] = useState("");
@@ -97,7 +97,7 @@ export function AppMoodPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId, firebaseUid, selectedDate]);
+  }, [api, navigate, apiUserReady, firebaseUid, selectedDate]);
 
   useEffect(() => {
     void reload();
@@ -129,7 +129,7 @@ export function AppMoodPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   async function onSave(): Promise<void> {
     if (!apiUserReady) {

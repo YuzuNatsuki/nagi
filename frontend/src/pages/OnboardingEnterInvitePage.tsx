@@ -6,7 +6,7 @@ import { routeAfterMe } from "../lib/me-navigation.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingEnterInvitePage(): ReactElement {
-  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -33,7 +33,7 @@ export function OnboardingEnterInvitePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseUid]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   async function onSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
