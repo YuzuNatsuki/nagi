@@ -63,7 +63,31 @@ export function createApiClient(options: ApiClientOptions) {
     return parseJson<TResponse>(res);
   }
 
-  return { request, postJson };
+  async function putJson<TResponse>(path: string, body: unknown): Promise<TResponse> {
+    const headers = new Headers({ "Content-Type": "application/json" });
+    const uid = options.getUserId();
+    if (uid !== null && uid !== "") {
+      headers.set(USER_HEADER, uid);
+    }
+    const res = await fetch(path, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let message = res.statusText;
+      try {
+        const errBody = (await res.json()) as ApiErrorBody;
+        message = errBody.error.message;
+      } catch {
+        /* 無視 */
+      }
+      throw new Error(message);
+    }
+    return parseJson<TResponse>(res);
+  }
+
+  return { request, postJson, putJson };
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;

@@ -1,15 +1,43 @@
 import express, { type Request, type Response } from "express";
-import { DUMMY_USERS } from "./dummy-users.js";
+import { listAnnouncementEntries } from "./announcements-store.js";
+import { DUMMY_USERS, findDummyUserById } from "./dummy-users.js";
 import {
+  applyMoodDailyChoiceForActor,
+  approvePendingMember,
   createOwnedPair,
   getActiveInviteForPairOwner,
+  getMoodDailyPromptForActor,
+  getMyMoodForPair,
+  getMyWhisperForPair,
+  getPairPrivacySettingsForActor,
   getPairSummaryForUser,
+  listPairMembersForActor,
+  listChatMessagesForActor,
+  listNotificationsForActor,
+  listPairSummariesForUser,
+  listPendingMemberUserIdsForPair,
+  postChatMessageForActor,
   redeemInviteCode,
+  resolveCalendarDayForApi,
+  saveMyMoodForPair,
+  saveMyWhisperForPair,
+  setActivePairForUser,
+  setPairPrivacySettingsForActor,
 } from "./pair-store.js";
 import { isRelationshipTagId } from "./relationship-tags.js";
 
 function jsonError(res: Response, status: number, code: string, message: string): void {
   res.status(status).json({ error: { code, message } });
+}
+
+function firstQueryString(v: unknown): string | undefined {
+  if (typeof v === "string") {
+    return v;
+  }
+  if (Array.isArray(v) && typeof v[0] === "string") {
+    return v[0];
+  }
+  return undefined;
 }
 
 function registerHealth(r: express.Router): void {
@@ -18,7 +46,65 @@ function registerHealth(r: express.Router): void {
   });
 }
 
+function registerAnnouncements(r: express.Router): void {
+  r.get("/announcements", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+    res.json({ announcements: listAnnouncementEntries() });
+  });
+}
+
 function registerMe(r: express.Router): void {
+  r.get("/me/pairs", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+    const pairs = listPairSummariesForUser(user.id);
+    const active = getPairSummaryForUser(user.id);
+    res.json({
+      pairs,
+      activePairId: active?.id ?? null,
+    });
+  });
+
+  r.put("/me/active-pair", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const body = req.body as unknown;
+    if (body === null || typeof body !== "object") {
+      jsonError(res, 400, "validation_error", "入力を読み取れませんでした");
+      return;
+    }
+    const pairIdRaw = (body as Record<string, unknown>).pairId;
+    if (typeof pairIdRaw !== "string" || pairIdRaw.trim() === "") {
+      jsonError(res, 400, "validation_error", "ペアを読み取れませんでした");
+      return;
+    }
+
+    const switched = setActivePairForUser(user.id, pairIdRaw.trim());
+    if (!switched.ok) {
+      jsonError(res, 403, "forbidden", "そのペアには、まだ入っていません");
+      return;
+    }
+
+    const pair = getPairSummaryForUser(user.id);
+    if (pair === null) {
+      jsonError(res, 500, "internal_error", "切り替え直後の状態を読み取れませんでした");
+      return;
+    }
+
+    res.json({ pair });
+  });
+
   r.get("/me", (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
@@ -65,8 +151,12 @@ function registerInvites(r: express.Router): void {
 
     const result = redeemInviteCode(user.id, codeRaw);
     if (!result.ok) {
-      if (result.reason === "already_in_pair") {
-        jsonError(res, 409, "conflict", "すでにほかのペアに入っています");
+      if (result.reason === "already_in_this_pair") {
+        jsonError(res, 409, "conflict", "すでにこのペアに入っています");
+        return;
+      }
+      if (result.reason === "pairs_limit_for_user") {
+        jsonError(res, 409, "conflict", "入れるペア数の上限に近いです");
         return;
       }
       if (result.reason === "code_not_found") {
@@ -103,6 +193,10 @@ function registerDevDummyUsers(r: express.Router): void {
       })),
     });
   });
+}
+
+function isChatRetentionChoice(value: unknown): value is "none" | "30days" | "90days" {
+  return value === "none" || value === "30days" || value === "90days";
 }
 
 function registerPairs(r: express.Router): void {
@@ -149,7 +243,7 @@ function registerPairs(r: express.Router): void {
     });
 
     if (!created.ok) {
-      jsonError(res, 409, "conflict", "すでにほかのペアに入っています");
+      jsonError(res, 409, "conflict", "入れるペア数の上限に近いです");
       return;
     }
 
@@ -166,6 +260,535 @@ function registerPairs(r: express.Router): void {
         expiresAt: created.invite.expiresAtIso,
       },
     });
+  });
+
+  r.get("/pairs/:pairId/members", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const listed = listPairMembersForActor(user.id, pairId);
+    if (!listed.ok) {
+      if (listed.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const members = listed.members.map((row) => ({
+      userId: row.userId,
+      displayName: findDummyUserById(row.userId)?.displayName ?? "名前が未登録の利用者",
+      role: row.role,
+      membershipState: row.membershipState,
+    }));
+
+    res.json({ members });
+  });
+
+  r.get("/pairs/:pairId/settings/privacy", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const privacy = getPairPrivacySettingsForActor(user.id, pairId);
+    if (!privacy.ok) {
+      if (privacy.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    res.json({ chatRetention: privacy.chatRetention });
+  });
+
+  r.put("/pairs/:pairId/settings/privacy", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const body = req.body as unknown;
+    if (body === null || typeof body !== "object") {
+      jsonError(res, 400, "validation_error", "入力を読み取れませんでした");
+      return;
+    }
+    const chatRetentionRaw = (body as Record<string, unknown>).chatRetention;
+    if (!isChatRetentionChoice(chatRetentionRaw)) {
+      jsonError(res, 400, "validation_error", "保存の値が、読み取れませんでした");
+      return;
+    }
+
+    const updated = setPairPrivacySettingsForActor(user.id, pairId, chatRetentionRaw);
+    if (!updated.ok) {
+      if (updated.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    res.json({ chatRetention: updated.chatRetention });
+  });
+
+  r.get("/pairs/:pairId/mood/daily-prompt", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const dateRaw = firstQueryString(req.query.date);
+    const resolved = resolveCalendarDayForApi(dateRaw);
+    if (!resolved.ok) {
+      jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
+      return;
+    }
+
+    const got = getMoodDailyPromptForActor(user.id, pairId, resolved.dayKey);
+    if (!got.ok) {
+      if (got.reason === "validation_error") {
+        jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
+        return;
+      }
+      if (got.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    res.json({
+      date: got.dayKey,
+      promptId: got.promptId,
+      question: got.question,
+      choices: got.choices,
+    });
+  });
+
+  r.post("/pairs/:pairId/mood/daily-choice", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const body = req.body as unknown;
+    if (body === null || typeof body !== "object") {
+      jsonError(res, 400, "validation_error", "入力を読み取れませんでした");
+      return;
+    }
+    const rec = body as Record<string, unknown>;
+    const choiceRaw = rec.choiceId;
+    if (typeof choiceRaw !== "string") {
+      jsonError(res, 400, "validation_error", "選び方を読み取れませんでした");
+      return;
+    }
+
+    const dateResolved = resolveCalendarDayForApi(rec.date);
+    if (!dateResolved.ok) {
+      jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
+      return;
+    }
+
+    const saved = applyMoodDailyChoiceForActor(user.id, pairId, dateResolved.dayKey, choiceRaw);
+    if (!saved.ok) {
+      if (saved.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      if (saved.reason === "not_found") {
+        jsonError(res, 404, "not_found", "ペアが見つかりません");
+        return;
+      }
+      jsonError(res, 400, "validation_error", "選び方か、長さの上限に合いませんでした");
+      return;
+    }
+
+    res.status(201).json({ mood: saved.mood });
+  });
+
+  r.get("/pairs/:pairId/mood", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const dateRaw = firstQueryString(req.query.date);
+    const resolved = resolveCalendarDayForApi(dateRaw);
+    if (!resolved.ok) {
+      jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
+      return;
+    }
+
+    const got = getMyMoodForPair(user.id, pairId, resolved.dayKey);
+    if (!got.ok) {
+      if (got.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    res.json({ date: got.dayKey, mood: got.mood });
+  });
+
+  r.put("/pairs/:pairId/mood", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const body = req.body as unknown;
+    if (body === null || typeof body !== "object") {
+      jsonError(res, 400, "validation_error", "入力を読み取れませんでした");
+      return;
+    }
+    const bodyRaw = (body as Record<string, unknown>).body;
+    if (typeof bodyRaw !== "string") {
+      jsonError(res, 400, "validation_error", "文章を読み取れませんでした");
+      return;
+    }
+
+    const dateResolved = resolveCalendarDayForApi((body as Record<string, unknown>).date);
+    if (!dateResolved.ok) {
+      jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
+      return;
+    }
+
+    const saved = saveMyMoodForPair(user.id, pairId, dateResolved.dayKey, bodyRaw);
+    if (!saved.ok) {
+      if (saved.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      if (saved.reason === "not_found") {
+        jsonError(res, 404, "not_found", "ペアが見つかりません");
+        return;
+      }
+      if (bodyRaw.trim().length === 0) {
+        jsonError(res, 400, "validation_error", "文章が、まだありません");
+        return;
+      }
+      jsonError(res, 400, "validation_error", "文章が長すぎます");
+      return;
+    }
+
+    res.json({ mood: saved.mood });
+  });
+
+  r.get("/pairs/:pairId/whisper", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const dateRaw = firstQueryString(req.query.date);
+    const resolved = resolveCalendarDayForApi(dateRaw);
+    if (!resolved.ok) {
+      jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
+      return;
+    }
+
+    const got = getMyWhisperForPair(user.id, pairId, resolved.dayKey);
+    if (!got.ok) {
+      if (got.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    res.json({ date: got.dayKey, whisper: got.whisper });
+  });
+
+  r.put("/pairs/:pairId/whisper", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const body = req.body as unknown;
+    if (body === null || typeof body !== "object") {
+      jsonError(res, 400, "validation_error", "入力を読み取れませんでした");
+      return;
+    }
+    const bodyRaw = (body as Record<string, unknown>).body;
+    if (typeof bodyRaw !== "string") {
+      jsonError(res, 400, "validation_error", "文章を読み取れませんでした");
+      return;
+    }
+
+    const dateResolved = resolveCalendarDayForApi((body as Record<string, unknown>).date);
+    if (!dateResolved.ok) {
+      jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
+      return;
+    }
+
+    const saved = saveMyWhisperForPair(user.id, pairId, dateResolved.dayKey, bodyRaw);
+    if (!saved.ok) {
+      if (saved.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      if (saved.reason === "not_found") {
+        jsonError(res, 404, "not_found", "ペアが見つかりません");
+        return;
+      }
+      if (bodyRaw.trim().length === 0) {
+        jsonError(res, 400, "validation_error", "文章が、まだありません");
+        return;
+      }
+      jsonError(res, 400, "validation_error", "文章が長すぎます");
+      return;
+    }
+
+    res.json({ whisper: saved.whisper });
+  });
+
+  r.get("/pairs/:pairId/notifications", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const listed = listNotificationsForActor(user.id, pairId);
+    if (!listed.ok) {
+      if (listed.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    res.json({ notifications: listed.notifications });
+  });
+
+  r.get("/pairs/:pairId/chat/messages", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const listed = listChatMessagesForActor(user.id, pairId);
+    if (!listed.ok) {
+      if (listed.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    res.json({ messages: listed.messages });
+  });
+
+  r.post("/pairs/:pairId/chat/messages", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const body = req.body as unknown;
+    if (body === null || typeof body !== "object") {
+      jsonError(res, 400, "validation_error", "入力を読み取れませんでした");
+      return;
+    }
+    const rec = body as Record<string, unknown>;
+    const textRaw = rec.text;
+    if (typeof textRaw !== "string") {
+      jsonError(res, 400, "validation_error", "文章を読み取れませんでした");
+      return;
+    }
+    const topicRaw = rec.topicUserId;
+    let topicUserId: string | null = null;
+    if (typeof topicRaw === "string" && topicRaw.trim() !== "") {
+      topicUserId = topicRaw.trim();
+    } else if (topicRaw !== undefined && topicRaw !== null) {
+      jsonError(res, 400, "validation_error", "話題の指定を読み取れませんでした");
+      return;
+    }
+
+    const posted = postChatMessageForActor(user.id, pairId, textRaw, topicUserId);
+    if (!posted.ok) {
+      if (posted.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      if (posted.reason === "not_found") {
+        jsonError(res, 404, "not_found", "ペアが見つかりません");
+        return;
+      }
+      if (posted.reason === "bad_topic") {
+        jsonError(res, 400, "validation_error", "話題の人が、見つかりません");
+        return;
+      }
+      if (textRaw.trim().length === 0) {
+        jsonError(res, 400, "validation_error", "文章が、まだありません");
+        return;
+      }
+      jsonError(res, 400, "validation_error", "文章が長すぎます");
+      return;
+    }
+
+    res.status(201).json({ messages: posted.messages });
+  });
+
+  r.get("/pairs/:pairId/pending-members", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    if (pairId === undefined || pairId.trim() === "") {
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const listed = listPendingMemberUserIdsForPair(pairId, user.id);
+    if (!listed.ok) {
+      if (listed.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      jsonError(res, 404, "not_found", "ペアが見つかりません");
+      return;
+    }
+
+    const members = listed.userIds.map((uid) => {
+      const du = findDummyUserById(uid);
+      return {
+        userId: uid,
+        displayName: du?.displayName ?? "名前が未登録の利用者",
+      };
+    });
+
+    res.json({ members });
+  });
+
+  r.post("/pairs/:pairId/members/:memberUserId/approve", (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const pairId = req.params.pairId;
+    const memberUserId = req.params.memberUserId;
+    if (pairId === undefined || pairId.trim() === "" || memberUserId === undefined || memberUserId.trim() === "") {
+      jsonError(res, 404, "not_found", "対象が見つかりません");
+      return;
+    }
+
+    const approved = approvePendingMember(user.id, pairId, memberUserId);
+    if (!approved.ok) {
+      if (approved.reason === "forbidden") {
+        jsonError(res, 403, "forbidden", "この操作には入れません");
+        return;
+      }
+      if (approved.reason === "not_found") {
+        jsonError(res, 404, "not_found", "対象が見つかりません");
+        return;
+      }
+      jsonError(res, 409, "conflict", "いまは承認の対象になっていません");
+      return;
+    }
+
+    res.status(200).json({ ok: true as const });
   });
 
   r.get("/pairs/:pairId/invite", (req: Request, res: Response) => {
@@ -207,6 +830,7 @@ export function createInMemoryApiRoutes(): express.Router {
   const r = express.Router();
   registerHealth(r);
   registerMe(r);
+  registerAnnouncements(r);
   registerPairs(r);
   registerInvites(r);
   registerDevDummyUsers(r);

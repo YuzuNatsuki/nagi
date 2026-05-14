@@ -6,7 +6,7 @@ describe("apiDelayMiddleware", () => {
   it("next を遅延後に一度だけ呼ぶ", async () => {
     vi.useFakeTimers();
     const next = vi.fn() as unknown as NextFunction;
-    const req = {} as Request;
+    const req = { path: "/pairs/p1/mood", originalUrl: "/api/pairs/p1/mood" } as Request;
     const res = {} as Response;
 
     apiDelayMiddleware(req, res, next);

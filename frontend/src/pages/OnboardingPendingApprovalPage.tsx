@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { MeResponse } from "../api/types.js";
 import { routeAfterMe } from "../lib/me-navigation.js";
@@ -11,38 +11,43 @@ export function OnboardingPendingApprovalPage(): ReactElement {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadMe = useCallback(async () => {
     if (userId === null) {
       setMe(null);
       setError(null);
       return;
     }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const data = await api.request<MeResponse>("/api/me");
-        if (cancelled) {
-          return;
-        }
-        setMe(data);
-        if (data.pair === null) {
-          navigate("/onboarding", { replace: true });
-          return;
-        }
-        if (data.pair.membershipState !== "pending_owner_approval") {
-          navigate(routeAfterMe(data), { replace: true });
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setMe(null);
-          setError(e instanceof Error ? e.message : "読み取れませんでした");
-        }
+    try {
+      const data = await api.request<MeResponse>("/api/me");
+      setMe(data);
+      if (data.pair === null) {
+        navigate("/onboarding", { replace: true });
+        return;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      if (data.pair.membershipState !== "pending_owner_approval") {
+        navigate(routeAfterMe(data), { replace: true });
+      }
+    } catch (e) {
+      setMe(null);
+      setError(e instanceof Error ? e.message : "読み取れませんでした");
+    }
   }, [api, navigate, userId]);
+
+  useEffect(() => {
+    void loadMe();
+  }, [loadMe]);
+
+  useEffect(() => {
+    if (userId === null) {
+      return;
+    }
+    const id = window.setInterval(() => {
+      void loadMe();
+    }, 4000);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [loadMe, userId]);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 transition-opacity duration-500">

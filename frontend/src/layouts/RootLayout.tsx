@@ -25,10 +25,12 @@ function UserChangeRedirect(): null {
 
 export function RootLayout(): ReactElement {
   return (
-    <div className="min-h-screen bg-paper text-ink">
+    <div className="flex min-h-screen flex-col bg-paper text-ink">
       <DevUserBar />
       <UserChangeRedirect />
-      <Outlet />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <Outlet />
+      </div>
     </div>
   );
 }

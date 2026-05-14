@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { PairInviteResponseBody } from "../api/types.js";
+import type { MeResponse, PairInviteResponseBody } from "../api/types.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 function formatExpiresAt(iso: string): string {
@@ -15,10 +15,34 @@ function formatExpiresAt(iso: string): string {
 export function OnboardingPairInvitePage(): ReactElement {
   const { pairId } = useParams();
   const { userId, api } = useDevUser();
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [data, setData] = useState<PairInviteResponseBody | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "done" | "failed">("idle");
+
+  useEffect(() => {
+    if (userId === null) {
+      setMe(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const meNow = await api.request<MeResponse>("/api/me");
+        if (!cancelled) {
+          setMe(meNow);
+        }
+      } catch {
+        if (!cancelled) {
+          setMe(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [api, userId]);
 
   useEffect(() => {
     if (pairId === undefined || pairId === "") {
@@ -138,6 +162,23 @@ export function OnboardingPairInvitePage(): ReactElement {
             <p className="text-sm text-indigo">クリップボードへ届きませんでした</p>
           ) : null}
         </div>
+      ) : null}
+
+      {pairId !== undefined &&
+      pairId !== "" &&
+      me !== null &&
+      me.pair !== null &&
+      me.pair.id === pairId &&
+      me.pair.yourRole === "owner" &&
+      me.pair.membershipState === "active" ? (
+        <p className="mt-10">
+          <Link
+            to={`/onboarding/pairs/${pairId}/owner-approve`}
+            className="text-sm text-indigo underline decoration-indigo/30 underline-offset-4 transition-opacity duration-500 hover:opacity-80"
+          >
+            入り待ちの確認
+          </Link>
+        </p>
       ) : null}
 
       <p className="mt-14">
