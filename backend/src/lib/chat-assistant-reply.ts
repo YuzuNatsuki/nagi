@@ -4,6 +4,7 @@
  * **Vertex AI のみ**（ランタイム SA + Application Default Credentials の OAuth）。
  * Google AI Studio の API キー経路は持たない。
  *
+ * 既定は `locations/global` + `aiplatform.googleapis.com`（Publisher の Gemini 向け）。`NAGI_VERTEX_AI_LOCATION` で上書き。
  * 利用者の発言は Vertex に送られる。DPA・データ所在地・ログにプロンプトを残さない運用は別途設計する。
  * `NAGI_CHAT_AI_ENABLED=0` のときは常にローカル分岐のみ。
  */
@@ -21,9 +22,33 @@ function geminiModelIdVertex(): string {
   return m !== undefined && m !== "" ? m : "gemini-2.0-flash-001";
 }
 
-function vertexRegion(): string {
-  const r = process.env.NAGI_VERTEX_AI_REGION?.trim();
-  return r !== undefined && r !== "" ? r : "asia-northeast1";
+/**
+ * Vertex の `locations/...` セグメント。Publisher の Gemini は公式例どおり **`global`** が無難。
+ * リージョン固定が必要なら `NAGI_VERTEX_AI_LOCATION` に `asia-northeast1` 等（従来の `NAGI_VERTEX_AI_REGION` も未指定時のフォールバック）。
+ */
+function vertexLocationPath(): string {
+  const loc = process.env.NAGI_VERTEX_AI_LOCATION?.trim();
+  if (loc !== undefined && loc !== "") {
+    return loc;
+  }
+  const legacy = process.env.NAGI_VERTEX_AI_REGION?.trim();
+  if (legacy !== undefined && legacy !== "") {
+    return legacy;
+  }
+  return "global";
+}
+
+function vertexApiHost(locationPath: string): string {
+  if (locationPath === "global") {
+    return "aiplatform.googleapis.com";
+  }
+  return `${locationPath}-aiplatform.googleapis.com`;
+}
+
+function chatAiDebug(message: string): void {
+  if (process.env.NAGI_CHAT_AI_DEBUG === "1") {
+    console.warn("[vertex gemini debug]", message);
+  }
 }
 
 /** 従来の Phase 1 ダミー応答（オフライン・テスト用・Vertex 失敗時のフォールバック） */
@@ -86,13 +111,23 @@ function extractGeminiText(json: unknown): string | null {
   const root = json as Record<string, unknown>;
   const candidates = root.candidates;
   if (!Array.isArray(candidates) || candidates.length === 0) {
+    const pf = root.promptFeedback;
+    if (pf !== null && typeof pf === "object" && "blockReason" in pf) {
+      chatAiDebug(`応答に candidates が無い（promptFeedback あり）`);
+    } else {
+      chatAiDebug("応答に candidates が無い");
+    }
     return null;
   }
   const c0 = candidates[0];
   if (c0 === null || typeof c0 !== "object") {
     return null;
   }
-  const content = (c0 as Record<string, unknown>).content;
+  const c0r = c0 as Record<string, unknown>;
+  if (typeof c0r.finishReason === "string" && c0r.finishReason !== "STOP" && c0r.finishReason !== "") {
+    chatAiDebug(`finishReason=${c0r.finishReason}`);
+  }
+  const content = c0r.content;
   if (content === null || typeof content !== "object") {
     return null;
   }
@@ -140,16 +175,19 @@ async function generateGeminiReplyViaVertex(userText: string, topicUserId: strin
   }
   const project = resolveFirebaseProjectId();
   if (project === "") {
+    chatAiDebug("FIREBASE_PROJECT_ID / GCLOUD_PROJECT が無いため Vertex をスキップ");
     return null;
   }
-  const region = vertexRegion();
+  const locationPath = vertexLocationPath();
+  const host = vertexApiHost(locationPath);
   const model = geminiModelIdVertex();
   const token = await getVertexAccessToken();
   if (token === null || token === "") {
+    chatAiDebug("アクセストークンが取れないため Vertex をスキップ（ADC / SA を確認）");
     return null;
   }
   const userBlock = buildUserBlock(userText, topicUserId);
-  const url = `https://${region}-aiplatform.googleapis.com/v1/projects/${encodeURIComponent(project)}/locations/${encodeURIComponent(region)}/publishers/google/models/${encodeURIComponent(model)}:generateContent`;
+  const url = `https://${host}/v1/projects/${encodeURIComponent(project)}/locations/${encodeURIComponent(locationPath)}/publishers/google/models/${encodeURIComponent(model)}:generateContent`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25_000);
@@ -166,6 +204,7 @@ async function generateGeminiReplyViaVertex(userText: string, topicUserId: strin
     const rawText = await res.text();
     if (!res.ok) {
       console.warn("[vertex gemini] HTTP", res.status, rawText.slice(0, 200));
+      chatAiDebug(`HTTP ${String(res.status)} — モデル・ロケーション・Vertex API 有効化を確認`);
       return null;
     }
     let parsed: unknown;
