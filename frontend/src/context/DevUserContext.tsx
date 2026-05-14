@@ -22,7 +22,14 @@ export function DevUserProvider({ children }: { children: ReactNode }): ReactEle
 
   const getUserId = useCallback(() => userId, [userId]);
 
-  const api = useMemo(() => createApiClient({ getUserId }), [getUserId]);
+  const api = useMemo(
+    () =>
+      createApiClient({
+        getUserId,
+        apiOrigin: import.meta.env.VITE_PUBLIC_API_ORIGIN?.trim() || undefined,
+      }),
+    [getUserId],
+  );
 
   const value = useMemo(
     () => ({

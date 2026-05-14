@@ -1,0 +1,61 @@
+# Artifact Registry に API イメージを push する（デモ用の骨）
+#
+# 事前準備（GCP）:
+# - Artifact Registry リポジトリ `nagi`（Docker）をリージョンに作成
+# - サービスアカウントに roles/artifactregistry.writer を付与
+# - GitHub にシークレットを登録:
+#     GCP_SA_JSON … サービスアカウント鍵 JSON 全文
+#     GCP_PROJECT_ID … プロジェクト ID
+#
+# 初回のみ手元で:
+#   gcloud artifacts repositories create nagi --repository-format=docker --location=asia-northeast1
+#
+name: gcp-api-image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "package.json"
+      - "package-lock.json"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/gcp-api-image.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  REGION: asia-northeast1
+  REPOSITORY: nagi
+  IMAGE_NAME: nagi-api
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_JSON }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        run: |
+          set -eux
+          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          TAG=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          BASE="${{ env.REGION }}-docker.pkg.dev/${PROJECT}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}"
+          docker build -f Dockerfile -t "${BASE}:${TAG}" -t "${BASE}:latest" .
+          docker push "${BASE}:${TAG}"
+          docker push "${BASE}:latest"
+          echo "Pushed ${BASE}:${TAG}"

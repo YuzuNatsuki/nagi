@@ -4,7 +4,23 @@ const USER_HEADER = "X-Nagi-User-Id";
 
 export type ApiClientOptions = {
   getUserId: () => string | null;
+  /**
+   * 本番デモ用: Cloud Run のオリジン（例 `https://nagi-api-xxxxx-xx.a.run.app`）。末尾スラッシュなし。
+   * 未指定・空のときは相対パス（Vite プロキシ向け）。
+   */
+  apiOrigin?: string;
 };
+
+function resolveFetchUrl(path: string, apiOrigin: string | undefined): string {
+  const origin = apiOrigin?.trim() ?? "";
+  if (origin === "") {
+    return path;
+  }
+  if (path.startsWith("/")) {
+    return `${origin.replace(/\/$/, "")}${path}`;
+  }
+  return `${origin.replace(/\/$/, "")}/${path}`;
+}
 
 async function parseJson<T>(res: Response): Promise<T> {
   const text = await res.text();
@@ -15,17 +31,20 @@ async function parseJson<T>(res: Response): Promise<T> {
 }
 
 /**
- * `/api` は Vite のプロキシ経由でバックエンドへ届く。
+ * `/api` は開発時は Vite のプロキシ経由。`apiOrigin` を渡すと絶対 URL で Cloud Run 等へ届く。
  * 認証の切替責務はフロントに持たず、ヘッダーで Phase 1 の利用者だけ伝える。
  */
 export function createApiClient(options: ApiClientOptions) {
+  const { apiOrigin } = options;
+
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const headers = new Headers(init?.headers);
     const uid = options.getUserId();
     if (uid !== null && uid !== "") {
       headers.set(USER_HEADER, uid);
     }
-    const res = await fetch(path, { ...init, headers });
+    const url = resolveFetchUrl(path, apiOrigin);
+    const res = await fetch(url, { ...init, headers });
     if (!res.ok) {
       let message = res.statusText;
       try {
@@ -45,7 +64,8 @@ export function createApiClient(options: ApiClientOptions) {
     if (uid !== null && uid !== "") {
       headers.set(USER_HEADER, uid);
     }
-    const res = await fetch(path, {
+    const url = resolveFetchUrl(path, apiOrigin);
+    const res = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
@@ -69,7 +89,8 @@ export function createApiClient(options: ApiClientOptions) {
     if (uid !== null && uid !== "") {
       headers.set(USER_HEADER, uid);
     }
-    const res = await fetch(path, {
+    const url = resolveFetchUrl(path, apiOrigin);
+    const res = await fetch(url, {
       method: "PUT",
       headers,
       body: JSON.stringify(body),
