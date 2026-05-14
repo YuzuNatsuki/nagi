@@ -5,6 +5,27 @@ function jsonError(res: Response, status: number, code: string, message: string)
   res.status(status).json({ error: { code, message } });
 }
 
+function firebaseAuthErrorHint(err: unknown): string {
+  const code =
+    typeof err === "object" && err !== null && "code" in err
+      ? String((err as { code: unknown }).code)
+      : "";
+  const msg = err instanceof Error ? err.message : String(err);
+
+  if (code === "auth/id-token-expired") {
+    return "ログインの有効期限が切れました。もう一度ログインしてください。";
+  }
+  if (
+    code === "auth/argument-error" ||
+    code === "auth/invalid-argument" ||
+    msg.toLowerCase().includes("aud") ||
+    msg.includes("audience")
+  ) {
+    return "ID トークンとサーバの Firebase プロジェクトが一致していません。Cloud Run の環境変数 FIREBASE_PROJECT_ID を、フロントの VITE_FIREBASE_PROJECT_ID（Firebase コンソールのプロジェクト ID）と同じにしてください。";
+  }
+  return "資格情報の確認に失敗しました";
+}
+
 function displayNameFromDecoded(decoded: {
   name?: string;
   email?: string;
@@ -71,8 +92,14 @@ export function firebaseBearerAuthMiddleware(
       };
       req.nagiUser = nagiUser;
       next();
-    } catch {
-      jsonError(res, 401, "invalid_token", "資格情報の確認に失敗しました");
+    } catch (err: unknown) {
+      const code =
+        typeof err === "object" && err !== null && "code" in err
+          ? String((err as { code: unknown }).code)
+          : "";
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[nagi] Firebase verifyIdToken failed", { code, message: msg, projectId });
+      jsonError(res, 401, "invalid_token", firebaseAuthErrorHint(err));
     }
   })();
 }

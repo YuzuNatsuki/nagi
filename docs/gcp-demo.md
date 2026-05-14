@@ -45,7 +45,7 @@ Phase 2 本実装と並行して使う、**最短でデモ URL に繋ぐ**ため
 
 1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成（GCP と同じプロジェクトにリンクしてもよい）。
 2. Hosting を有効にする。
-3. リポジトリの `firebase.json` は `public: frontend/dist` を指している。**`/api/**` は Cloud Run の `nagi-api`（`asia-northeast1`）へリライト**し、そのほかを SPA の `index.html` に流す（この順でないと、相対 `/api` が HTML になり `Unexpected token '<'` になる）。
+3. リポジトリの `firebase.json` は `public: frontend/dist` を指している。**`/api{,/**}` を Cloud Run の `nagi-api`（`asia-northeast1`）へリライト**し、そのほかを SPA の `index.html` に流す（`/api/**` だけだと環境によって `/api` 直下だけ取りこぼす説明があるため、`/api` と `/api/...` の両方を明示）。**この設定を変えたあと `firebase deploy --only hosting` していないと、`/api/me` が Vite の `index.html`（`<!doctype html>`）のまま返る。**
 4. `.firebaserc.example` をコピーして `.firebaserc` を作り、`YOUR_FIREBASE_PROJECT_ID` を実 ID に置き換える（このファイルは **`.gitignore` 対象**でリポジトリに含めない。各自の手元にだけ置く）。
   ```bash
    cp .firebaserc.example .firebaserc
@@ -74,9 +74,10 @@ Firebase Hosting のオリジンからブラウザで Cloud Run を叩ける。
 
 画面に詳細メッセージが出るようになっているので、まずその文言を確認する。よくある原因は次のとおり。
 
-1. **Cloud Run の環境変数 `FIREBASE_PROJECT_ID`**（または `GCLOUD_PROJECT`）が、Firebase Authentication の **project ID** と一致していない。
-2. **Hosting → Cloud Run リライト**後、Firebase が Cloud Run を呼ぶための **IAM**（`roles/run.invoker`）が足りない。`firebase deploy --only hosting` 後にコンソールで Cloud Run の「セキュリティ」やログを確認する。
-3. **ブラウザの開発者ツール → ネットワーク**で `GET .../api/me` のステータス（401 / 403 / 503 など）とレスポンス本文を確認する。
+1. **レスポンスが Vite の `index.html`（`<!doctype html>`・`/assets/index-*.js`）**のときは、**Hosting の Cloud Run リライトが当たっておらず**、catch-all で SPA が返っている。`firebase.json` をリポジトリ最新に合わせ **`firebase deploy --only hosting`** する。別案として、フロントのビルドで **`VITE_PUBLIC_API_ORIGIN` を Cloud Run の `https://....run.app` に固定**し、API を Hosting 上の相対 `/api` 経由にしない。
+2. **Cloud Run の環境変数 `FIREBASE_PROJECT_ID`**（または `GCLOUD_PROJECT`）が、Firebase Authentication の **project ID** と一致していない。
+3. **Hosting → Cloud Run リライト**後、Firebase が Cloud Run を呼ぶための **IAM**（`roles/run.invoker`）が足りない。`firebase deploy --only hosting` 後にコンソールで Cloud Run の「セキュリティ」やログを確認する。
+4. **ブラウザの開発者ツール → ネットワーク**で `GET .../api/me` のステータス（401 / 403 / 503 など）とレスポンス本文を確認する。手元からは `curl -sS -o /dev/null -w '%{http_code}' 'https://YOUR_HOSTING/web.app/api/health'` が `200` かどうかも有効。
 
 ## 4. Phase 2: メール認証と Firestore（開始済み）
 
