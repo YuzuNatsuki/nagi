@@ -44,7 +44,7 @@ Phase 2 本実装と並行して使う、**最短でデモ URL に繋ぐ**ため
 
 1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成（GCP と同じプロジェクトにリンクしてもよい）。
 2. Hosting を有効にする。
-3. リポジトリの `firebase.json` は `public: frontend/dist` を指している。
+3. リポジトリの `firebase.json` は `public: frontend/dist` を指している。**`/api/**` は Cloud Run の `nagi-api`（`asia-northeast1`）へリライト**し、そのほかを SPA の `index.html` に流す（この順でないと、相対 `/api` が HTML になり `Unexpected token '<'` になる）。
 4. `.firebaserc.example` をコピーして `.firebaserc` を作り、`YOUR_FIREBASE_PROJECT_ID` を実 ID に置き換える（このファイルは **`.gitignore` 対象**でリポジトリに含めない。各自の手元にだけ置く）。
   ```bash
    cp .firebaserc.example .firebaserc
