@@ -26,8 +26,9 @@ Phase 2 本実装と並行して使う、**最短でデモ URL に繋ぐ**ため
   - `GCP_SA_JSON` … 鍵 JSON の全文
   - `GCP_PROJECT_ID` … プロジェクト ID（前後のスペース・改行は入れない。誤って入れると Docker タグが無効になる）
 5. `main` にマージするか **Actions の「Run workflow」** で `gcp-api-image` を実行し、イメージが `asia-northeast1-docker.pkg.dev/.../nagi-api:<sha>` に載ることを確認する。
-6. **Cloud Run** に手動デプロイ（初回の骨）。
-  ```bash
+6. （任意）同じワークフローで **「Deploy to Cloud Run」をオン**にすると、ビルド後に **そのイメージで Cloud Run の `nagi-api` を更新**できる。GitHub 用 SA に `roles/run.admin` など Cloud Run 更新権限が必要。
+7. **Cloud Run** に手動デプロイ（初回の骨）。
+   ```bash
    IMAGE="asia-northeast1-docker.pkg.dev/YOUR_PROJECT_ID/nagi/nagi-api:latest"
    gcloud run deploy nagi-api \
      --image="${IMAGE}" \

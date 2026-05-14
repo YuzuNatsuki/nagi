@@ -7,6 +7,10 @@
 #     GCP_SA_JSON … サービスアカウント鍵 JSON 全文
 #     GCP_PROJECT_ID … プロジェクト ID
 #
+# Cloud Run へ載せる（任意）:
+# - 同じ SA に roles/run.admin など（Cloud Run 更新が可能な権限）を付与
+# - Actions の「Run workflow」で「Deploy to Cloud Run」をオンにして実行
+#
 # 初回のみ手元で:
 #   gcloud artifacts repositories create nagi --repository-format=docker --location=asia-northeast1
 #
@@ -22,7 +26,12 @@ on:
       - "Dockerfile"
       - ".dockerignore"
       - ".github/workflows/gcp-api-image.yml"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      deploy_cloud_run:
+        description: "ビルド後に Cloud Run（nagi-api）へデプロイする"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,6 +44,8 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build.outputs.uri }}
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +61,7 @@ jobs:
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
       - name: Build and push image
+        id: build
         run: |
           set -eux
           # GitHub のシークレットに末尾スペースが入ると Docker タグが無効になるため trim する
@@ -64,3 +76,37 @@ jobs:
           docker push "${BASE}:${TAG}"
           docker push "${BASE}:latest"
           echo "Pushed ${BASE}:${TAG}"
+          echo "uri=${BASE}:${TAG}" >> "${GITHUB_OUTPUT}"
+
+  deploy-cloud-run:
+    name: Deploy to Cloud Run (optional)
+    needs: build-and-push
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_cloud_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_JSON }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Cloud Run service
+        run: |
+          set -eux
+          PROJECT=$(echo -n "${{ secrets.GCP_PROJECT_ID }}" | xargs)
+          if [ -z "${PROJECT}" ]; then
+            echo "GCP_PROJECT_ID が空です。"
+            exit 1
+          fi
+          IMAGE="${{ needs.build-and-push.outputs.image_uri }}"
+          gcloud run deploy nagi-api \
+            --image="${IMAGE}" \
+            --region=${{ env.REGION }} \
+            --project="${PROJECT}" \
+            --allow-unauthenticated \
+            --port=8080 \
+            --set-env-vars="NODE_ENV=production,BIND_HOST=0.0.0.0,FIREBASE_PROJECT_ID=${PROJECT}"
