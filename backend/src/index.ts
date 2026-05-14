@@ -4,7 +4,17 @@ import { createApiRouter } from "./adapters/runtime-backend-adapter.js";
 
 const app = express();
 app.disable("x-powered-by");
-app.use(cors({ origin: true }));
+app.use(
+  cors({
+    origin: true,
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Nagi-User-Id",
+      "X-Nagi-Firebase-Id-Token",
+    ],
+  }),
+);
 app.use(express.json({ limit: "1mb" }));
 
 app.use("/api", createApiRouter());

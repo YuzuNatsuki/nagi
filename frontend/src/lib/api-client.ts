@@ -1,6 +1,8 @@
 import type { ApiErrorBody } from "../api/types.js";
 
 const USER_HEADER = "X-Nagi-User-Id";
+/** Firebase Hosting 経由で Authorization が落ちる場合のバックアップ（バックエンドと同名・生 JWT）。 */
+const FIREBASE_ID_TOKEN_FALLBACK_HEADER = "X-Nagi-Firebase-Id-Token";
 
 export type ApiClientOptions = {
   getUserId: () => string | null;
@@ -51,6 +53,7 @@ async function applyAuthHeaders(
   const token = (await options.getFirebaseIdToken?.()) ?? null;
   if (token !== null && token !== "") {
     headers.set("Authorization", `Bearer ${token}`);
+    headers.set(FIREBASE_ID_TOKEN_FALLBACK_HEADER, token);
     return;
   }
   const uid = options.getUserId();

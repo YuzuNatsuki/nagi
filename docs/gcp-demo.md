@@ -75,9 +75,10 @@ Firebase Hosting のオリジンからブラウザで Cloud Run を叩ける。
 画面に詳細メッセージが出るようになっているので、まずその文言を確認する。よくある原因は次のとおり。
 
 1. **レスポンスが Vite の `index.html`（`<!doctype html>`・`/assets/index-*.js`）**のときは、**Hosting の Cloud Run リライトが当たっておらず**、catch-all で SPA が返っている。`firebase.json` をリポジトリ最新に合わせ **`firebase deploy --only hosting`** する。別案として、フロントのビルドで **`VITE_PUBLIC_API_ORIGIN` を Cloud Run の `https://....run.app` に固定**し、API を Hosting 上の相対 `/api` 経由にしない。
-2. **Cloud Run の環境変数 `FIREBASE_PROJECT_ID`**（または `GCLOUD_PROJECT`）が、Firebase Authentication の **project ID** と一致していない。
-3. **Hosting → Cloud Run リライト**後、Firebase が Cloud Run を呼ぶための **IAM**（`roles/run.invoker`）が足りない。`firebase deploy --only hosting` 後にコンソールで Cloud Run の「セキュリティ」やログを確認する。
-4. **ブラウザの開発者ツール → ネットワーク**で `GET .../api/me` のステータス（401 / 403 / 503 など）とレスポンス本文を確認する。手元からは `curl -sS -o /dev/null -w '%{http_code}' 'https://YOUR_HOSTING/web.app/api/health'` が `200` かどうかも有効。
+2. **`401` かつ `利用者がまだ選ばれていません`**: ブラウザは Firebase にログインできているが、**API に ID トークンが届いていない**（`Authorization` が Hosting リライトで落ちることがある）。フロントは **`X-Nagi-Firebase-Id-Token` にも同じ JWT を付ける**実装になっているので、**API（Cloud Run）をこのリポジトリの最新で再デプロイ**する。根本回避は **`VITE_PUBLIC_API_ORIGIN` を Cloud Run 直 URL**にして Hosting 経由で `/api` を叩かないこと。
+3. **Cloud Run の環境変数 `FIREBASE_PROJECT_ID`**（または `GCLOUD_PROJECT`）が、Firebase Authentication の **project ID** と一致していない。
+4. **Hosting → Cloud Run リライト**後、Firebase が Cloud Run を呼ぶための **IAM**（`roles/run.invoker`）が足りない。`firebase deploy --only hosting` 後にコンソールで Cloud Run の「セキュリティ」やログを確認する。
+5. **ブラウザの開発者ツール → ネットワーク**で `GET .../api/me` のステータス（401 / 403 / 503 など）とレスポンス本文を確認する。手元からは `curl -sS -o /dev/null -w '%{http_code}' 'https://YOUR_HOSTING/web.app/api/health'` が `200` かどうかも有効。
 
 ## 4. Phase 2: メール認証と Firestore（開始済み）
 

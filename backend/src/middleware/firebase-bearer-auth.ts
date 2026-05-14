@@ -1,6 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import type { NagiUser } from "../auth/nagi-user.js";
 
+/** Firebase Hosting → Cloud Run 経由で `Authorization` が落ちる事例へのバックアップ（生の ID トークン）。 */
+export const FIREBASE_ID_TOKEN_FALLBACK_HEADER = "x-nagi-firebase-id-token";
+
 function jsonError(res: Response, status: number, code: string, message: string): void {
   res.status(status).json({ error: { code, message } });
 }
@@ -44,20 +47,31 @@ function displayNameFromDecoded(decoded: {
   return "利用者";
 }
 
+function resolveFirebaseIdTokenFromRequest(req: Request): string {
+  const rawAuth = req.header("authorization");
+  const fromAuth =
+    rawAuth !== undefined && rawAuth.toLowerCase().startsWith("bearer ")
+      ? rawAuth.slice(7).trim()
+      : "";
+  if (fromAuth !== "") {
+    return fromAuth;
+  }
+  return req.header(FIREBASE_ID_TOKEN_FALLBACK_HEADER)?.trim() ?? "";
+}
+
 /**
  * `Authorization: Bearer <Firebase ID token>` を検証し、`req.nagiUser` を設定する。
  * トークンが無いときは何もしない（ダミー認証や匿名へ委譲）。
+ *
+ * Hosting リライトで `Authorization` が届かない場合に備え、
+ * `X-Nagi-Firebase-Id-Token` に同じ JWT を入れても検証できる。
  */
 export function firebaseBearerAuthMiddleware(
   req: Request,
   res: Response,
   next: NextFunction,
 ): void {
-  const rawAuth = req.header("authorization");
-  const bearer =
-    rawAuth !== undefined && rawAuth.toLowerCase().startsWith("bearer ")
-      ? rawAuth.slice(7).trim()
-      : "";
+  const bearer = resolveFirebaseIdTokenFromRequest(req);
 
   if (bearer === "") {
     next();
@@ -98,7 +112,16 @@ export function firebaseBearerAuthMiddleware(
           ? String((err as { code: unknown }).code)
           : "";
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn("[nagi] Firebase verifyIdToken failed", { code, message: msg, projectId });
+      console.warn(
+        JSON.stringify({
+          tag: "nagi.firebase.verifyIdToken",
+          code,
+          message: msg,
+          projectId,
+          hasAuthorization: Boolean(req.header("authorization")),
+          hasFallbackTokenHeader: Boolean(req.header(FIREBASE_ID_TOKEN_FALLBACK_HEADER)),
+        }),
+      );
       jsonError(res, 401, "invalid_token", firebaseAuthErrorHint(err));
     }
   })();
