@@ -3,6 +3,7 @@ node_modules/
 dist/
 *.log
 .env
+.env.deploy
 .env.local
 .firebaserc
 .DS_Store

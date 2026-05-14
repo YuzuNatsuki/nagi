@@ -36,6 +36,8 @@ Phase 2 本実装と並行して使う、**最短でデモ URL に繋ぐ**ため
      --port=8080 \
      --set-env-vars=NODE_ENV=production,BIND_HOST=0.0.0.0
   ```
+   2回目以降の更新でフルイメージ URL を打ちたくない場合は、`cp .env.deploy.example .env.deploy` に `GCP_PROJECT_ID` を書き、`npm run deploy:cloud-run`（中身は `scripts/deploy-cloud-run.sh`）で `.../nagi-api:latest` を組み立ててデプロイできる。
+
    表示された **サービス URL**（`https://....run.app`）を控える。API は `/api/...` 配下。
 
 ## 2. フロント（Firebase Hosting）と API の向き先
