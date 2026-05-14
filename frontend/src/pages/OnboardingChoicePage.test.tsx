@@ -1,16 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { DevUserProvider } from "../context/DevUserContext.js";
+import { AppTestProviders } from "../test/test-providers.js";
 import { OnboardingChoicePage } from "./OnboardingChoicePage.js";
 
 describe("OnboardingChoicePage", () => {
   it("二つの入口を示す", () => {
     render(
       <MemoryRouter>
-        <DevUserProvider>
+        <AppTestProviders>
           <OnboardingChoicePage />
-        </DevUserProvider>
+        </AppTestProviders>
       </MemoryRouter>,
     );
 

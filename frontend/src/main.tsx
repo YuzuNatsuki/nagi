@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { AuthProvider } from "./context/AuthContext.js";
 import { DevUserProvider } from "./context/DevUserContext.js";
 import { App } from "./App.js";
 import "./index.css";
@@ -11,8 +12,10 @@ if (rootEl === null) {
 
 createRoot(rootEl).render(
   <StrictMode>
-    <DevUserProvider>
-      <App />
-    </DevUserProvider>
+    <AuthProvider>
+      <DevUserProvider>
+        <App />
+      </DevUserProvider>
+    </AuthProvider>
   </StrictMode>,
 );

@@ -1,16 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { DevUserProvider } from "../context/DevUserContext.js";
+import { AppTestProviders } from "../test/test-providers.js";
 import { OnboardingEnterInvitePage } from "./OnboardingEnterInvitePage.js";
 
 describe("OnboardingEnterInvitePage", () => {
   it("コードが空のときは送信できない", () => {
     render(
       <MemoryRouter>
-        <DevUserProvider>
+        <AppTestProviders>
           <OnboardingEnterInvitePage />
-        </DevUserProvider>
+        </AppTestProviders>
       </MemoryRouter>,
     );
 
@@ -21,9 +21,9 @@ describe("OnboardingEnterInvitePage", () => {
   it("コードを入れると送信できる", () => {
     render(
       <MemoryRouter>
-        <DevUserProvider>
+        <AppTestProviders>
           <OnboardingEnterInvitePage />
-        </DevUserProvider>
+        </AppTestProviders>
       </MemoryRouter>,
     );
 

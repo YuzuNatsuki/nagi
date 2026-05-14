@@ -1,4 +1,5 @@
 import express, { type Request, type Response } from "express";
+import { upsertNagiUserProfileIfConfigured } from "../firestore/user-profile.js";
 import { listAnnouncementEntries } from "./announcements-store.js";
 import { DUMMY_USERS, findDummyUserById } from "./dummy-users.js";
 import {
@@ -25,6 +26,7 @@ import {
   setPairPrivacySettingsForActor,
 } from "./pair-store.js";
 import { isRelationshipTagId } from "./relationship-tags.js";
+import { isDummyAuthAllowed } from "../../lib/is-dummy-auth.js";
 
 function jsonError(res: Response, status: number, code: string, message: string): void {
   res.status(status).json({ error: { code, message } });
@@ -105,11 +107,16 @@ function registerMe(r: express.Router): void {
     res.json({ pair });
   });
 
-  r.get("/me", (req: Request, res: Response) => {
+  r.get("/me", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
       return;
+    }
+    try {
+      await upsertNagiUserProfileIfConfigured(user);
+    } catch (e) {
+      console.warn("upsertNagiUserProfileIfConfigured", e);
     }
     const pair = getPairSummaryForUser(user.id);
     res.json({
@@ -185,6 +192,10 @@ function registerInvites(r: express.Router): void {
 
 function registerDevDummyUsers(r: express.Router): void {
   r.get("/dev/dummy-users", (_req: Request, res: Response) => {
+    if (!isDummyAuthAllowed()) {
+      jsonError(res, 404, "not_found", "この入口は、使われていません");
+      return;
+    }
     res.json({
       users: DUMMY_USERS.map((u) => ({
         id: u.id,

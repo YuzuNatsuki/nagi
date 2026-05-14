@@ -1,0 +1,9 @@
+rules_version = '2';
+// クライアントからの直接読書きは禁止。API は Admin SDK でのみ書き込む。
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

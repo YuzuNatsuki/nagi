@@ -2,12 +2,15 @@ import type { ReactElement } from "react";
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { DevUserBar } from "../components/DevUserBar.js";
+import { useAuth } from "../context/AuthContext.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 function UserChangeRedirect(): null {
   const { userId } = useDevUser();
+  const { user: fbUser } = useAuth();
   const navigate = useNavigate();
   const prevUserId = useRef<string | null | undefined>(undefined);
+  const prevFbUid = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (prevUserId.current === undefined) {
@@ -19,6 +22,18 @@ function UserChangeRedirect(): null {
       navigate("/", { replace: true });
     }
   }, [userId, navigate]);
+
+  useEffect(() => {
+    const fbKey = fbUser?.uid ?? null;
+    if (prevFbUid.current === undefined) {
+      prevFbUid.current = fbKey;
+      return;
+    }
+    if (prevFbUid.current !== fbKey) {
+      prevFbUid.current = fbKey;
+      navigate("/", { replace: true });
+    }
+  }, [fbUser, navigate]);
 
   return null;
 }

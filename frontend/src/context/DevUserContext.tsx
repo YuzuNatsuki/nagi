@@ -7,6 +7,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { useAuth } from "./AuthContext.js";
 import { createApiClient, type ApiClient } from "../lib/api-client.js";
 
 type DevUserContextValue = {
@@ -19,6 +20,7 @@ const DevUserContext = createContext<DevUserContextValue | null>(null);
 
 export function DevUserProvider({ children }: { children: ReactNode }): ReactElement {
   const [userId, setUserId] = useState<string | null>(null);
+  const { getFirebaseIdToken, firebaseEnabled } = useAuth();
 
   const getUserId = useCallback(() => userId, [userId]);
 
@@ -26,9 +28,10 @@ export function DevUserProvider({ children }: { children: ReactNode }): ReactEle
     () =>
       createApiClient({
         getUserId,
+        getFirebaseIdToken: firebaseEnabled ? getFirebaseIdToken : undefined,
         apiOrigin: import.meta.env.VITE_PUBLIC_API_ORIGIN?.trim() || undefined,
       }),
-    [getUserId],
+    [getUserId, getFirebaseIdToken, firebaseEnabled],
   );
 
   const value = useMemo(

@@ -1,19 +1,27 @@
 import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { MeResponse } from "../api/types.js";
-import { routeAfterMe } from "../lib/me-navigation.js";
+import { useAuth } from "../context/AuthContext.js";
 import { useDevUser } from "../context/DevUserContext.js";
+import { routeAfterMe } from "../lib/me-navigation.js";
 
 type GateState = "idle_no_user" | "loading" | "fallback";
 
 export function RootIndexPage(): ReactElement {
   const { userId, api } = useDevUser();
+  const { firebaseEnabled, authReady, user: fbUser } = useAuth();
   const navigate = useNavigate();
   const [gate, setGate] = useState<GateState>("idle_no_user");
 
   useEffect(() => {
-    if (userId === null) {
+    if (firebaseEnabled && !authReady) {
+      return;
+    }
+
+    const hasIdentity = firebaseEnabled ? fbUser !== null || userId !== null : userId !== null;
+
+    if (!hasIdentity) {
       setGate("idle_no_user");
       return;
     }
@@ -41,7 +49,15 @@ export function RootIndexPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseEnabled, authReady, fbUser]);
+
+  if (firebaseEnabled && !authReady) {
+    return (
+      <main className="mx-auto max-w-3xl px-6 py-16 transition-opacity duration-500">
+        <p className="text-ink/70">つながっています</p>
+      </main>
+    );
+  }
 
   if (gate === "loading") {
     return (
@@ -58,9 +74,24 @@ export function RootIndexPage(): ReactElement {
         AI が、あなたに、大切な人について、短い気づきを届ける場所です。
       </p>
       {gate === "idle_no_user" ? (
-        <p className="mt-6 max-w-prose text-sm text-ink/60">
-          開発では、上のバーで利用者を選ぶと、ペアの有無に応じて次の画面へ移ります。
-        </p>
+        <>
+          <p className="mt-6 max-w-prose text-sm text-ink/60">
+            {firebaseEnabled
+              ? "メールでログインするか、開発用の利用者を選ぶと、ペアの有無に応じて次の画面へ移ります。"
+              : "開発では、上のバーで利用者を選ぶと、ペアの有無に応じて次の画面へ移ります。"}
+          </p>
+          {firebaseEnabled ? (
+            <p className="mt-4 text-sm text-ink/80">
+              <Link to="/sign-in" className="text-indigo underline underline-offset-4">
+                メールでログイン
+              </Link>
+              <span className="text-ink/40"> · </span>
+              <Link to="/sign-up" className="text-indigo underline underline-offset-4">
+                新規登録
+              </Link>
+            </p>
+          ) : null}
+        </>
       ) : (
         <p className="mt-6 max-w-prose text-sm text-ink/60">状態を読み取れませんでした。</p>
       )}

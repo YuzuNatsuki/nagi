@@ -1,16 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { DevUserProvider } from "../context/DevUserContext.js";
+import { AppTestProviders } from "../test/test-providers.js";
 import { OnboardingCreatePairPage } from "./OnboardingCreatePairPage.js";
 
 describe("OnboardingCreatePairPage", () => {
   it("表示名が空のときは送信できない", () => {
     render(
       <MemoryRouter>
-        <DevUserProvider>
+        <AppTestProviders>
           <OnboardingCreatePairPage />
-        </DevUserProvider>
+        </AppTestProviders>
       </MemoryRouter>,
     );
 
@@ -21,9 +21,9 @@ describe("OnboardingCreatePairPage", () => {
   it("表示名を入れると送信できる", () => {
     render(
       <MemoryRouter>
-        <DevUserProvider>
+        <AppTestProviders>
           <OnboardingCreatePairPage />
-        </DevUserProvider>
+        </AppTestProviders>
       </MemoryRouter>,
     );
 

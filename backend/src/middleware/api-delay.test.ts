@@ -4,6 +4,7 @@ import { apiDelayMiddleware } from "./api-delay.js";
 
 describe("apiDelayMiddleware", () => {
   it("next を遅延後に一度だけ呼ぶ", async () => {
+    vi.stubEnv("VITEST", "");
     vi.useFakeTimers();
     const next = vi.fn() as unknown as NextFunction;
     const req = { path: "/pairs/p1/mood", originalUrl: "/api/pairs/p1/mood" } as Request;
@@ -15,5 +16,6 @@ describe("apiDelayMiddleware", () => {
     await vi.runAllTimersAsync();
     expect(next).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 });

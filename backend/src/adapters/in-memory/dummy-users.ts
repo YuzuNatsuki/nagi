@@ -26,3 +26,7 @@ export const DUMMY_USERS: readonly DummyUser[] = [
 export function findDummyUserById(userId: string): DummyUser | undefined {
   return DUMMY_USERS.find((u) => u.id === userId);
 }
+
+export function isDummyUserId(userId: string): boolean {
+  return DUMMY_USERS.some((u) => u.id === userId);
+}

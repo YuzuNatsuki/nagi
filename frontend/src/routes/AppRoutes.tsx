@@ -18,10 +18,14 @@ import { OnboardingOwnerApprovePage } from "../pages/OnboardingOwnerApprovePage.
 import { OnboardingPairInvitePage } from "../pages/OnboardingPairInvitePage.js";
 import { OnboardingPendingApprovalPage } from "../pages/OnboardingPendingApprovalPage.js";
 import { RootIndexPage } from "../pages/RootIndexPage.js";
+import { SignInPage } from "../pages/SignInPage.js";
+import { SignUpPage } from "../pages/SignUpPage.js";
 
 export function AppRoutes(): ReactElement {
   return (
     <Routes>
+      <Route path="sign-in" element={<SignInPage />} />
+      <Route path="sign-up" element={<SignUpPage />} />
       <Route element={<RootLayout />}>
         <Route index element={<RootIndexPage />} />
         <Route path="onboarding" element={<OnboardingChoicePage />} />

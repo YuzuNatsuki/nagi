@@ -24,7 +24,7 @@ Phase 2 本実装と並行して使う、**最短でデモ URL に繋ぐ**ため
   - （後で Run にデプロイするなら）`roles/run.admin` と `roles/iam.serviceAccountUser` など
 4. その SA の **JSON 鍵**を発行し、GitHub リポジトリの **Secrets** に登録する。
   - `GCP_SA_JSON` … 鍵 JSON の全文
-  - `GCP_PROJECT_ID` … プロジェクト ID（文字列）
+  - `GCP_PROJECT_ID` … プロジェクト ID（前後のスペース・改行は入れない。誤って入れると Docker タグが無効になる）
 5. `main` にマージするか **Actions の「Run workflow」** で `gcp-api-image` を実行し、イメージが `asia-northeast1-docker.pkg.dev/.../nagi-api:<sha>` に載ることを確認する。
 6. **Cloud Run** に手動デプロイ（初回の骨）。
   ```bash
@@ -43,7 +43,7 @@ Phase 2 本実装と並行して使う、**最短でデモ URL に繋ぐ**ため
 1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成（GCP と同じプロジェクトにリンクしてもよい）。
 2. Hosting を有効にする。
 3. リポジトリの `firebase.json` は `public: frontend/dist` を指している。
-4. `.firebaserc.example` をコピーして `.firebaserc` を作り、`YOUR_FIREBASE_PROJECT_ID` を実 ID に置き換える。
+4. `.firebaserc.example` をコピーして `.firebaserc` を作り、`YOUR_FIREBASE_PROJECT_ID` を実 ID に置き換える（このファイルは **`.gitignore` 対象**でリポジトリに含めない。各自の手元にだけ置く）。
   ```bash
    cp .firebaserc.example .firebaserc
    # 編集して default を Firebase プロジェクト ID に
@@ -67,10 +67,31 @@ Hosting の URL（`https://....web.app`）がデモ用のフロントになる�
 API は `cors` で **リクエストの `Origin` をそのまま許可**する設定（`origin: true`）にしてある。  
 Firebase Hosting のオリジンからブラウザで Cloud Run を叩ける。
 
-## 4. 次の一歩（Phase 2）
+## 4. Phase 2: メール認証と Firestore（開始済み）
 
-- Firebase **Authentication**（メール＋パスワード）と、API のトークン検証
-- **Firestore** に `pairs` / `invites` などを移す
+1. Firebase Console で **Authentication**（メール／パスワード）と **Firestore** を有効にする。
+2. フロント用に Web アプリ設定を取得し、リポジトリ直下の `.env.example` を参考に **`frontend/.env.local`** に `VITE_FIREBASE_*` と必要なら `VITE_PUBLIC_API_ORIGIN` を書く。
+3. **API にプロジェクト ID とランタイム SA の権限（Cloud Run / ローカル）**  
+   - **環境変数**  
+     - コードは **`FIREBASE_PROJECT_ID`** を優先し、無ければ **`GCLOUD_PROJECT`** を参照します。Cloud Run は後者を自動で入れることがありますが、**`FIREBASE_PROJECT_ID` を明示する方が確実**です（値は Firebase の **project ID** と一致）。  
+     - コンソール: Cloud Run → 対象サービス → **編集と新しいリビジョンのデプロイ** →「変数、シークレット、接続、セキュリティ」→ 環境変数。  
+     - CLI の例:  
+       `gcloud run services update nagi-api --region=asia-northeast1 --project=nagi-496300 --set-env-vars="FIREBASE_PROJECT_ID=nagi-496300"`  
+   - **ランタイム用サービス アカウント（SA）**  
+     - Cloud Run の同じ画面の **サービス アカウント** に表示されるメールが「API が動く主体」です。GitHub Actions 用の SA（Artifact Registry に push する鍵の SA）とは**別**です。  
+     - **Firestore** に Admin SDK で `users/{uid}` を書くには、この SA に少なくとも **`roles/datastore.user`**（プロジェクトにバインド）など、データストアへの書き込みが通る権限を付けます。  
+     - 付与例（`RUNTIME_SA_EMAIL` を Cloud Run に表示されたメールに置き換え）:  
+       `gcloud projects add-iam-policy-binding nagi-496300 --member="serviceAccount:RUNTIME_SA_EMAIL" --role="roles/datastore.user"`  
+   - **ID トークン検証**  
+     - `verifyIdToken` は公開鍵で署名を検証するため、「検証専用の IAM ロールが必ずこれ」というより、**ADC が付いた SA で Admin SDK が起動できればよい**理解で足りることが多いです。失敗する場合は `FIREBASE_PROJECT_ID` の誤りや ADC 未設定を疑います。  
+   - **ローカル**で Bearer まで試すとき: 手元で **`gcloud auth application-default login`** を実行し、同じターミナルで **`export FIREBASE_PROJECT_ID=...`** してから `npm run dev -w backend` します。
+4. 初回デプロイ後、ルート **`firestore.rules`** を `firebase deploy --only firestore:rules` で反映する（クライアント直アクセスは閉じ、API のみ Admin で書く想定）。
+5. 本番でダミーヘッダを切るときは **`NAGI_DUMMY_AUTH=0`**。`/api/dev/dummy-users` は応答しなくなる。
+6. 認証済みの **`GET /api/me`** のたびに、Firestore の **`users/{uid}`** に `displayName` と `updatedAt` を upsert する（`FIRESTORE_ENABLED=0` で無効化可能）。**ペアや招待の本体はまだ in-memory** で、次の変更で Firestore に載せ替える。
+
+## 5. 次の一歩（Phase 2 続き）
+
+- **Firestore** に `pairs` / `invites` などを移す（Unit 5）
 - Cloud Run デプロイを **GitHub Actions** に乗せる、`latest` 以外のタグ運用
 
 ## 補足: ローカル開発

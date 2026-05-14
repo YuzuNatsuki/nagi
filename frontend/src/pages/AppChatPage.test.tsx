@@ -1,18 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { DevUserProvider } from "../context/DevUserContext.js";
+import { AppTestProviders } from "../test/test-providers.js";
 import { AppChatPage } from "./AppChatPage.js";
 
 describe("AppChatPage", () => {
   it("見出しを表示する", () => {
     render(
       <MemoryRouter initialEntries={["/app/chat"]}>
-        <DevUserProvider>
+        <AppTestProviders>
           <Routes>
             <Route path="/app/chat" element={<AppChatPage />} />
           </Routes>
-        </DevUserProvider>
+        </AppTestProviders>
       </MemoryRouter>,
     );
 

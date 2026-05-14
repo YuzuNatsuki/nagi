@@ -2,20 +2,20 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { AppTestProviders } from "../test/test-providers.js";
-import { AppSettingsPage } from "./AppSettingsPage.js";
+import { OnboardingPendingApprovalPage } from "./OnboardingPendingApprovalPage.js";
 
-describe("AppSettingsPage", () => {
+describe("OnboardingPendingApprovalPage", () => {
   it("見出しを表示する", () => {
     render(
-      <MemoryRouter initialEntries={["/app/settings"]}>
+      <MemoryRouter initialEntries={["/onboarding/pending-approval"]}>
         <AppTestProviders>
           <Routes>
-            <Route path="/app/settings" element={<AppSettingsPage />} />
+            <Route path="/onboarding/pending-approval" element={<OnboardingPendingApprovalPage />} />
           </Routes>
         </AppTestProviders>
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "設定" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "承認待ち" })).toBeInTheDocument();
   });
 });

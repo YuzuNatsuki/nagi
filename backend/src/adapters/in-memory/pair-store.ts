@@ -873,22 +873,24 @@ function buildSeedNotificationEntries(pairId: string): NotificationHistoryItem[]
   for (let i = 0; i < pairId.length; i += 1) {
     checksum += pairId.charCodeAt(i)!;
   }
-  const branch = (checksum + label.length) % 2;
+  const branch = (checksum + label.length + Math.floor(Math.random() * 2)) % 2;
   const now = Date.now();
   const msDay = 86400000;
+  const jitterHours = Math.floor(Math.random() * 6);
+  const jitterMs = jitterHours * 3600000;
   if (branch === 0) {
     return [
       {
         id: newId("ntf"),
         headline: "朝のかたち",
         body: `「${label}」は、いまは静かな一日のはじまりに近いようです。受け取り方は、あなたの手に残します。`,
-        createdAt: new Date(now - msDay * 2).toISOString(),
+        createdAt: new Date(now - msDay * 2 - jitterMs).toISOString(),
       },
       {
         id: newId("ntf"),
         headline: "日中の気配",
         body: `「${label}」について、目立つ変化がなくても、空気の重さだけが少し違う、ということもあります。`,
-        createdAt: new Date(now - msDay * 1).toISOString(),
+        createdAt: new Date(now - msDay * 1 - jitterMs).toISOString(),
       },
     ];
   }
@@ -897,13 +899,13 @@ function buildSeedNotificationEntries(pairId: string): NotificationHistoryItem[]
       id: newId("ntf"),
       headline: "夕方の輪郭",
       body: `「${label}」のまわりは、今日も穏やかに畳まれていきそうです。急がなくて大丈夫です。`,
-      createdAt: new Date(now - msDay * 3).toISOString(),
+      createdAt: new Date(now - msDay * 3 - jitterMs).toISOString(),
     },
     {
       id: newId("ntf"),
       headline: "夜に向けて",
       body: `「${label}」について、いまは推察を増やさないほうが、落ち着きやすいかもしれません。`,
-      createdAt: new Date(now - msDay * 1).toISOString(),
+      createdAt: new Date(now - msDay * 1 - jitterMs).toISOString(),
     },
   ];
 }

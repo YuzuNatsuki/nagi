@@ -52,7 +52,12 @@ jobs:
       - name: Build and push image
         run: |
           set -eux
-          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          # GitHub のシークレットに末尾スペースが入ると Docker タグが無効になるため trim する
+          PROJECT=$(echo -n "${{ secrets.GCP_PROJECT_ID }}" | xargs)
+          if [ -z "${PROJECT}" ]; then
+            echo "GCP_PROJECT_ID が空です。Secrets を確認してください。"
+            exit 1
+          fi
           TAG=$(echo "${GITHUB_SHA}" | cut -c1-7)
           BASE="${{ env.REGION }}-docker.pkg.dev/${PROJECT}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}"
           docker build -f Dockerfile -t "${BASE}:${TAG}" -t "${BASE}:latest" .

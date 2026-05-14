@@ -26,6 +26,7 @@ export function AppNotificationsPage(): ReactElement {
   const [rows, setRows] = useState<NotificationHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [browserNote, setBrowserNote] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (userId === null) {
@@ -57,6 +58,33 @@ export function AppNotificationsPage(): ReactElement {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const tryBrowserNotification = useCallback(async () => {
+    setBrowserNote(null);
+    if (typeof window === "undefined" || typeof Notification === "undefined") {
+      setBrowserNote("この環境では、ブラウザ通知を試せません。");
+      return;
+    }
+    try {
+      let permission = Notification.permission;
+      if (permission === "default") {
+        permission = await Notification.requestPermission();
+      }
+      if (permission !== "granted") {
+        setBrowserNote("通知がオフのままです。ブラウザの設定から許可できる場合があります。");
+        return;
+      }
+      const first = rows[0];
+      const body =
+        first !== undefined
+          ? `${first.headline} のかたちだけを、短く試し表示しています。`
+          : "凪からの試し通知です。本文そのものの保存ではありません。";
+      new Notification("凪", { body, lang: "ja" });
+      setBrowserNote("試し通知を送りました。見えない場合は、集中モードなどを確認してください。");
+    } catch (e) {
+      setBrowserNote(e instanceof Error ? e.message : "通知を送れませんでした");
+    }
+  }, [rows]);
 
   useEffect(() => {
     if (userId === null) {
@@ -93,6 +121,27 @@ export function AppNotificationsPage(): ReactElement {
       <p className="mt-8 max-w-prose text-ink/80">
         届いたメッセージのかたちだけが並びます。今日のメモやひとりごとメモの本文そのものは、ここには出しません。
       </p>
+
+      {userId !== null ? (
+        <section className="mt-10 rounded-lg border border-ink/10 bg-white px-5 py-5" aria-label="ブラウザ通知の試行">
+          <h2 className="font-serif text-lg text-ink">ブラウザ通知の確認</h2>
+          <p className="mt-3 max-w-prose text-sm text-ink/80">
+            Phase 1 では、端末の通知欄に届くかどうかだけを確かめます。本番の配送とは別経路です。
+          </p>
+          <button
+            type="button"
+            className="mt-4 rounded-md border border-ink/15 bg-white px-4 py-2 text-sm text-ink transition-opacity duration-500 hover:opacity-80"
+            onClick={() => void tryBrowserNotification()}
+          >
+            ブラウザ通知を試す
+          </button>
+          {browserNote !== null ? (
+            <p className="mt-3 max-w-prose text-sm text-ink/70" role="status">
+              {browserNote}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {userId === null ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">

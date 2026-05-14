@@ -1,10 +1,10 @@
-import type { DummyUser } from "../adapters/in-memory/dummy-users.js";
+import type { NagiUser } from "../auth/nagi-user.js";
 
 declare global {
   namespace Express {
     interface Request {
-      /** Phase 1: `X-Nagi-User-Id` から解決した利用者。未送信のときは undefined。 */
-      nagiUser?: DummyUser;
+      /** Firebase ID トークンまたは `X-Nagi-User-Id` で解決した利用者。未確定のときは undefined。 */
+      nagiUser?: NagiUser;
     }
   }
 }

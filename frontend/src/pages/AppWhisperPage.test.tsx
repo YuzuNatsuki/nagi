@@ -1,18 +1,18 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { DevUserProvider } from "../context/DevUserContext.js";
+import { AppTestProviders } from "../test/test-providers.js";
 import { AppWhisperPage } from "./AppWhisperPage.js";
 
 describe("AppWhisperPage", () => {
   it("見出しを表示する", () => {
     render(
       <MemoryRouter initialEntries={["/app/whisper"]}>
-        <DevUserProvider>
+        <AppTestProviders>
           <Routes>
             <Route path="/app/whisper" element={<AppWhisperPage />} />
           </Routes>
-        </DevUserProvider>
+        </AppTestProviders>
       </MemoryRouter>,
     );
 
