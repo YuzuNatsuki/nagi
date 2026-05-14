@@ -266,7 +266,7 @@ export async function postChatMessageForActor(
   topicUserId: string | null,
 ): Promise<PostChatMessageResult> {
   if (!useFirestoreForUser(actorUserId)) {
-    return memory.postChatMessageForActor(actorUserId, pairId, text, topicUserId);
+    return await memory.postChatMessageForActor(actorUserId, pairId, text, topicUserId);
   }
   return firestore.postChatMessageForActor(actorUserId, pairId, text, topicUserId);
 }

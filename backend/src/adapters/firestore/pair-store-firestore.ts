@@ -12,6 +12,7 @@ import {
   MAX_SOLO_BODY_CHARS,
   newId,
 } from "../in-memory/pair-store-shared.js";
+import { resolveAssistantReply } from "../../lib/chat-assistant-reply.js";
 import {
   parseCalendarDayStrict,
   type ApproveMemberResult,
@@ -743,25 +744,6 @@ function retentionCutoffMs(chatRetention: ChatRetentionChoice): number {
   return now - 90 * 86400000;
 }
 
-function buildAssistantReply(userText: string, topicUserId: string | null): string {
-  const t = userText.trim();
-  const topicPrefix =
-    topicUserId !== null && topicUserId !== "" ? "その方の話題に留めて推察しますが、" : "";
-  if (/疲れ|つかれ/.test(t)) {
-    return `${topicPrefix}いまの言葉には、からだの声が少し混じっているようにも見えます。休める幅を広げてもよさそうです。断定ではありません。`;
-  }
-  if (/心配|しんぱい/.test(t)) {
-    return `${topicPrefix}気にかかっているようですね。事実と想像の境は、あえてゆるめておいてもよさそうです。`;
-  }
-  if (/天気|雨|晴/.test(t)) {
-    return `${topicPrefix}空の話題に見えます。身のまわりの小さな変化として受け取ってもよいかもしれません。`;
-  }
-  if (/ありがと|感謝/.test(t)) {
-    return `${topicPrefix}いまの言葉はやわらかいですね。その調子を保てば十分そうに見えます。`;
-  }
-  return `${topicPrefix}短い一行にも、いまの輪郭が少し映っているように感じます。急いで整えなくても大丈夫です。`;
-}
-
 function deterministicSeedNotifications(pairId: string, displayName: string): NotificationHistoryItem[] {
   const label = displayName || "このペア";
   let checksum = 0;
@@ -914,6 +896,7 @@ export async function postChatMessageForActor(
   const nowIso = new Date().toISOString();
   const userMsgId = newId("cht");
   const asstMsgId = newId("cht");
+  const assistantBody = await resolveAssistantReply(trimmed, topic);
   const batch = db().batch();
   batch.set(col.doc(userMsgId), {
     role: "user" as const,
@@ -923,7 +906,7 @@ export async function postChatMessageForActor(
   });
   batch.set(col.doc(asstMsgId), {
     role: "assistant" as const,
-    body: buildAssistantReply(trimmed, topic),
+    body: assistantBody,
     createdAt: nowIso,
     topicUserId: topic,
   });

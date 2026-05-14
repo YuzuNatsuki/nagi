@@ -9,6 +9,7 @@ import { firebaseBearerAuthMiddleware } from "../middleware/firebase-bearer-auth
  *
  * ダミー実装と本実装の切替点はこのファイルだけに集約する。
  * Phase 1: in-memory のみ。Phase 2: Firebase ID トークン検証 + Firestore（ユーザー文書）など。
+ * チャット AI: Vertex AI のみ（ランタイム SA + ADC）。`src/lib/chat-assistant-reply.ts`。
  */
 export function createApiRouter(): express.Router {
   const router = express.Router();

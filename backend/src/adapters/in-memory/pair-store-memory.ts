@@ -14,6 +14,7 @@ import {
   MAX_SOLO_BODY_CHARS,
   newId,
 } from "./pair-store-shared.js";
+import { resolveAssistantReply } from "../../lib/chat-assistant-reply.js";
 
 /**
  * Phase 1: ペア所属の in-memory 状態。
@@ -847,27 +848,6 @@ function pruneChatMessages(actorUserId: string, pairId: string): void {
   chatMessagesByUserPair.set(key, kept);
 }
 
-function buildAssistantReply(userText: string, topicUserId: string | null): string {
-  const t = userText.trim();
-  const topicPrefix =
-    topicUserId !== null && topicUserId !== ""
-      ? "その方の話題に留めて推察しますが、"
-      : "";
-  if (/疲れ|つかれ/.test(t)) {
-    return `${topicPrefix}いまの言葉には、からだの声が少し混じっているようにも見えます。休める幅を広げてもよさそうです。断定ではありません。`;
-  }
-  if (/心配|しんぱい/.test(t)) {
-    return `${topicPrefix}気にかかっているようですね。事実と想像の境は、あえてゆるめておいてもよさそうです。`;
-  }
-  if (/天気|雨|晴/.test(t)) {
-    return `${topicPrefix}空の話題に見えます。身のまわりの小さな変化として受け取ってもよいかもしれません。`;
-  }
-  if (/ありがと|感謝/.test(t)) {
-    return `${topicPrefix}いまの言葉はやわらかいですね。その調子を保てば十分そうに見えます。`;
-  }
-  return `${topicPrefix}短い一行にも、いまの輪郭が少し映っているように感じます。急いで整えなくても大丈夫です。`;
-}
-
 function activeMemberUserIdsForPair(pairId: string): Set<string> {
   const ids = new Set<string>();
   for (const [uid, list] of userMemberships.entries()) {
@@ -900,12 +880,12 @@ export type PostChatMessageResult =
   | { ok: true; messages: ChatMessageRow[] }
   | { ok: false; reason: "forbidden" | "not_found" | "validation_error" | "bad_topic" };
 
-export function postChatMessageForActor(
+export async function postChatMessageForActor(
   actorUserId: string,
   pairId: string,
   text: string,
   topicUserId: string | null,
-): PostChatMessageResult {
+): Promise<PostChatMessageResult> {
   if (!pairs.has(pairId)) {
     return { ok: false, reason: "not_found" };
   }
@@ -932,6 +912,7 @@ export function postChatMessageForActor(
   pruneChatMessages(actorUserId, pairId);
   const key = chatStorageKey(actorUserId, pairId);
   const list = [...(chatMessagesByUserPair.get(key) ?? [])];
+  const assistantBody = await resolveAssistantReply(trimmed, topic);
   list.push({
     id: newId("cht"),
     role: "user",
@@ -942,7 +923,7 @@ export function postChatMessageForActor(
   list.push({
     id: newId("cht"),
     role: "assistant",
-    body: buildAssistantReply(trimmed, topic),
+    body: assistantBody,
     createdAt: new Date().toISOString(),
     topicUserId: topic,
   });
