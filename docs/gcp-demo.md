@@ -69,6 +69,14 @@ Hosting の URL（`https://....web.app`）がデモ用のフロントになる�
 API は `cors` で **リクエストの `Origin` をそのまま許可**する設定（`origin: true`）にしてある。  
 Firebase Hosting のオリジンからブラウザで Cloud Run を叩ける。
 
+### メールログイン後に「状態を読み取れませんでした」（`/api/me` が失敗）
+
+画面に詳細メッセージが出るようになっているので、まずその文言を確認する。よくある原因は次のとおり。
+
+1. **Cloud Run の環境変数 `FIREBASE_PROJECT_ID`**（または `GCLOUD_PROJECT`）が、Firebase Authentication の **project ID** と一致していない。
+2. **Hosting → Cloud Run リライト**後、Firebase が Cloud Run を呼ぶための **IAM**（`roles/run.invoker`）が足りない。`firebase deploy --only hosting` 後にコンソールで Cloud Run の「セキュリティ」やログを確認する。
+3. **ブラウザの開発者ツール → ネットワーク**で `GET .../api/me` のステータス（401 / 403 / 503 など）とレスポンス本文を確認する。
+
 ## 4. Phase 2: メール認証と Firestore（開始済み）
 
 1. Firebase Console で **Authentication**（メール／パスワード）と **Firestore** を有効にする。

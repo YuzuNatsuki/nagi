@@ -13,6 +13,8 @@ export function RootIndexPage(): ReactElement {
   const { firebaseEnabled, authReady } = useAuth();
   const navigate = useNavigate();
   const [gate, setGate] = useState<GateState>("idle_no_user");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retrySeq, setRetrySeq] = useState(0);
 
   useEffect(() => {
     if (firebaseEnabled && !authReady) {
@@ -21,11 +23,13 @@ export function RootIndexPage(): ReactElement {
 
     if (!apiUserReady) {
       setGate("idle_no_user");
+      setLoadError(null);
       return;
     }
 
     let cancelled = false;
     setGate("loading");
+    setLoadError(null);
     void (async () => {
       try {
         const me = await api.request<MeResponse>("/api/me");
@@ -37,8 +41,11 @@ export function RootIndexPage(): ReactElement {
           return;
         }
         navigate(routeAfterMe(me), { replace: true });
-      } catch {
+      } catch (e) {
         if (!cancelled) {
+          const msg = e instanceof Error ? e.message : "読み取れませんでした";
+          console.warn("[RootIndexPage] /api/me failed", e);
+          setLoadError(msg);
           setGate("fallback");
         }
       }
@@ -47,7 +54,7 @@ export function RootIndexPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, apiUserReady, firebaseUid, firebaseEnabled, authReady]);
+  }, [api, navigate, apiUserReady, firebaseUid, firebaseEnabled, authReady, retrySeq]);
 
   if (firebaseEnabled && !authReady) {
     return (
@@ -91,7 +98,23 @@ export function RootIndexPage(): ReactElement {
           ) : null}
         </>
       ) : (
-        <p className="mt-6 max-w-prose text-sm text-ink/60">状態を読み取れませんでした。</p>
+        <div className="mt-6 max-w-prose space-y-4">
+          <p className="text-sm text-ink/60">状態を読み取れませんでした。</p>
+          {loadError !== null ? (
+            <p className="text-sm text-indigo" role="status">
+              {loadError}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="rounded-md border border-ink/15 bg-white px-4 py-2 text-sm text-ink outline-none ring-indigo/30 focus:ring-2"
+            onClick={() => {
+              setRetrySeq((n) => n + 1);
+            }}
+          >
+            もう一度試す
+          </button>
+        </div>
       )}
     </main>
   );

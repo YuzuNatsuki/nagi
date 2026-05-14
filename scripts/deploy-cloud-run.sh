@@ -11,7 +11,8 @@
 #   第1・第2引数 → プロジェクト ID、タグ
 #
 # gcloud の追加フラグは「--」のあと:
-#   ./scripts/deploy-cloud-run.sh -- --set-env-vars=FIREBASE_PROJECT_ID=my-proj
+#   ./scripts/deploy-cloud-run.sh -- --set-env-vars=OTHER=x
+# （既定で FIREBASE_PROJECT_ID は GCP_PROJECT_ID と同じに入れます。違う場合は .env.deploy に FIREBASE_PROJECT_ID= を書く）
 set -euo pipefail
 
 REGION="${REGION:-asia-northeast1}"
@@ -72,8 +73,14 @@ fi
 
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPOSITORY}/${IMAGE_NAME}:${TAG}"
 
+FIREBASE_PID="$(trim "${FIREBASE_PROJECT_ID:-}")"
+if [[ -z "$FIREBASE_PID" ]]; then
+  FIREBASE_PID="${PROJECT}"
+fi
+
 echo "Cloud Run: service=${SERVICE} region=${REGION} project=${PROJECT}"
 echo "Image: ${IMAGE}"
+echo "FIREBASE_PROJECT_ID (for Admin token verify): ${FIREBASE_PID}"
 
 exec gcloud run deploy "${SERVICE}" \
   --image="${IMAGE}" \
@@ -81,5 +88,5 @@ exec gcloud run deploy "${SERVICE}" \
   --project="${PROJECT}" \
   --allow-unauthenticated \
   --port=8080 \
-  --set-env-vars=NODE_ENV=production,BIND_HOST=0.0.0.0 \
+  --set-env-vars="NODE_ENV=production,BIND_HOST=0.0.0.0,FIREBASE_PROJECT_ID=${FIREBASE_PID}" \
   "${EXTRA[@]}"
