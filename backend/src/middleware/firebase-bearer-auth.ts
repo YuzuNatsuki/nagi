@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import type { NagiUser } from "../auth/nagi-user.js";
+import { ensureFirebaseAdminInitialized, resolveFirebaseProjectId } from "../lib/ensure-firebase-admin.js";
 
 /** Firebase Hosting → Cloud Run 経由で `Authorization` が落ちる事例へのバックアップ（生の ID トークン）。 */
 export const FIREBASE_ID_TOKEN_FALLBACK_HEADER = "x-nagi-firebase-id-token";
@@ -84,7 +85,7 @@ export function firebaseBearerAuthMiddleware(
     return;
   }
 
-  const projectId = (process.env.FIREBASE_PROJECT_ID ?? process.env.GCLOUD_PROJECT ?? "").trim();
+  const projectId = resolveFirebaseProjectId();
   if (projectId === "") {
     jsonError(res, 503, "auth_unavailable", "サーバ側の Firebase プロジェクト ID がまだありません");
     return;
@@ -92,14 +93,17 @@ export function firebaseBearerAuthMiddleware(
 
   void (async () => {
     try {
+      const initOk = await ensureFirebaseAdminInitialized();
       const adminModule = await import("firebase-admin");
-      // ESM の dynamic import は { default } だけ返し、トップに apps は無い
       const admin = adminModule.default;
-      if (admin.apps.length === 0) {
-        admin.initializeApp({
-          credential: admin.credential.applicationDefault(),
-          projectId,
-        });
+      if (!initOk || admin.apps.length === 0) {
+        jsonError(
+          res,
+          503,
+          "auth_unavailable",
+          "Firebase を初期化できませんでした。FIREBASE_PROJECT_ID と認証情報（ローカルなら gcloud auth application-default login）を確認してください。",
+        );
+        return;
       }
       const decoded = await admin.auth().verifyIdToken(bearer);
       const nagiUser: NagiUser = {
