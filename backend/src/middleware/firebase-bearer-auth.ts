@@ -92,7 +92,9 @@ export function firebaseBearerAuthMiddleware(
 
   void (async () => {
     try {
-      const admin = await import("firebase-admin");
+      const adminModule = await import("firebase-admin");
+      // ESM の dynamic import は { default } だけ返し、トップに apps は無い
+      const admin = adminModule.default;
       if (admin.apps.length === 0) {
         admin.initializeApp({
           credential: admin.credential.applicationDefault(),
