@@ -34,7 +34,9 @@ export function SignInPage(): ReactElement {
   if (!firebaseEnabled) {
     return (
       <main className="mx-auto max-w-md px-6 py-16">
-        <p className="text-sm text-ink/70">Firebase の環境変数がまだありません。Vite の `VITE_FIREBASE_*` を設定してください。</p>
+        <p className="text-sm text-ink/70">
+          Firebase の環境変数がまだありません。Vite の `VITE_FIREBASE_*` を設定すると起動できます。
+        </p>
         <p className="mt-6">
           <Link to="/" className="text-sm text-indigo underline underline-offset-4">
             凪へ戻る

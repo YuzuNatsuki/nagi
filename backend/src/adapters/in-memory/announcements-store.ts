@@ -9,7 +9,8 @@ export type AnnouncementItem = {
   publishedAt: string;
 };
 
-const SEED: readonly AnnouncementItem[] = [
+/** Firestore 初期投入と同一の既定お知らせ（読み取り専用参照用） */
+export const ANNOUNCEMENT_SEED_ENTRIES: readonly AnnouncementItem[] = [
   {
     id: "ann_phase1_intro",
     title: "試運転のねらい",
@@ -31,5 +32,5 @@ const SEED: readonly AnnouncementItem[] = [
 ] as const;
 
 export function listAnnouncementEntries(): AnnouncementItem[] {
-  return SEED.map((a) => ({ ...a }));
+  return ANNOUNCEMENT_SEED_ENTRIES.map((a) => ({ ...a }));
 }

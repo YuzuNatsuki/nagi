@@ -36,7 +36,7 @@ async function parseJson<T>(res: Response): Promise<T> {
   const head = text.trimStart().slice(0, 12).toLowerCase();
   if (head.startsWith("<!doctype") || head.startsWith("<html")) {
     throw new Error(
-      "API が JSON ではなく HTML を返しています。Firebase Hosting では /api が index.html に流れやすいので、firebase.json で /api/** を Cloud Run にリライトするか、ビルド時に VITE_PUBLIC_API_ORIGIN を API の URL に設定してください。",
+      "API が JSON ではなく HTML を返しています。Firebase Hosting では /api が index.html に流れやすいので、firebase.json で /api/** を Cloud Run にリライトするか、ビルド時に VITE_PUBLIC_API_ORIGIN を API の URL に当てはめるとつながりやすいです。",
     );
   }
   try {

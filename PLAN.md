@@ -62,8 +62,8 @@
 
 - [x] 各画面の最低限 UI テストを追加
 - [x] 主要 API の単体テストを追加（`pair-store` に加え HTTP 経由の通しを `api-http.test.ts` で検証）
-- [ ] 文言がトーン規則を満たすことをレビュー
-- [ ] 画面遷移の通し動作を確認
+- [x] 文言がトーン規則を満たすことをレビュー（命令形「〜してください」の緩和など、`SPEC.md` のトーン規則に沿って反映）
+- [x] 画面遷移の通し動作を確認（`phase1-navigation-flow.test.tsx` でルート→オンボーディング／凪入口を検証）
 - [ ] ユーザー確認で「UI 確定」を得る
 
 ## Phase 2: 本実装フェーズ
@@ -75,10 +75,11 @@
 
 ### Unit 5: ペア基盤
 
-- [ ] Firestore へペア・招待・承認モデルを実装
-- [ ] 招待コード失効 / 使い切り / 監査ログを実装
+- [ ] Firestore へペア・招待・承認モデルを実装（`pair-store-firestore` で継続）
+- [x] 招待コード失効 / 使い切り（Firestore トランザクション・`getActiveInviteForPairOwner` の期限チェック）
+- [x] `pair_audit_log` への主要イベント追記（ペア作成・招待 redeem・メンバー承認）
 - [ ] 認可ポリシーを本実装へ置換
-- [ ] property-based test を含むテスト完了
+- [ ] property-based test を含むテスト完了（まず `pair-store-shared.property.test.ts` で招待コードの簡易プロパティ検査を追加）
 
 ### Unit 3: 3 エージェント + Vertex AI
 

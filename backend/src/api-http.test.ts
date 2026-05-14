@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApiRouter } from "./adapters/runtime-backend-adapter.js";
+import { clearDummyUserNicknameOverridesForTests } from "./adapters/in-memory/dummy-user-nickname.js";
 import { resetInMemoryPairStateForTests } from "./adapters/in-memory/pair-store.js";
 
 const USER_HEADER = "x-nagi-user-id";
@@ -57,6 +58,7 @@ describe("HTTP API (Phase 1)", () => {
 
   beforeEach(async () => {
     resetInMemoryPairStateForTests();
+    clearDummyUserNicknameOverridesForTests();
     const s = await listen(createTestApp());
     baseUrl = s.baseUrl;
     close = s.close;
@@ -76,6 +78,33 @@ describe("HTTP API (Phase 1)", () => {
   it("未認可の /api/me は 401", async () => {
     const res = await fetch(`${baseUrl}/api/me`);
     expect(res.status).toBe(401);
+  });
+
+  it("PUT /api/me/profile でニックネームを保存し GET /api/me で返る", async () => {
+    const putRes = await fetch(`${baseUrl}/api/me/profile`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        [USER_HEADER]: "user-owner-01",
+      },
+      body: JSON.stringify({ nickname: "凪のてすと" }),
+    });
+    expect(putRes.status).toBe(200);
+    const putBody = (await putRes.json()) as {
+      user: { displayName: string; nickname: string | null; authDisplayName: string };
+    };
+    expect(putBody.user.displayName).toBe("凪のてすと");
+    expect(putBody.user.nickname).toBe("凪のてすと");
+    expect(putBody.user.authDisplayName).toBe("ひかり");
+
+    const getRes = await fetch(`${baseUrl}/api/me`, { headers: { [USER_HEADER]: "user-owner-01" } });
+    expect(getRes.status).toBe(200);
+    const getBody = (await getRes.json()) as {
+      user: { displayName: string; nickname: string | null; authDisplayName: string };
+    };
+    expect(getBody.user.displayName).toBe("凪のてすと");
+    expect(getBody.user.nickname).toBe("凪のてすと");
+    expect(getBody.user.authDisplayName).toBe("ひかり");
   });
 
   it("ペアに入っていない利用者の mood 取得は 403", async () => {

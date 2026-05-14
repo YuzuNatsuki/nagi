@@ -29,7 +29,7 @@ void ensureFirebaseAdminInitialized().then((ok) => {
     console.log(`[nagi] Firebase Admin initialized (projectId=${resolveFirebaseProjectId()})`);
   } else if (resolveFirebaseProjectId() !== "") {
     console.warn(
-      "[nagi] FIREBASE_PROJECT_ID はあるが Admin 初期化に失敗しました。Firestore は書けません。ADC または Cloud Run の実行 SA を確認してください。",
+      "[nagi] FIREBASE_PROJECT_ID はあるが Admin 初期化に失敗しました。Firestore は書けません。ADC または Cloud Run の実行 SA を確認すると切り分けしやすいです。",
     );
   }
   app.listen(port, host, () => {

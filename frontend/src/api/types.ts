@@ -31,7 +31,12 @@ export type PairSummary = {
 export type MeResponse = {
   user: {
     id: string;
+    /** アプリ内で見せる名前（ニックネーム優先） */
     displayName: string;
+    /** 利用者が設定したニックネーム。未設定は null */
+    nickname: string | null;
+    /** 認証アカウント由来の表示名（参考） */
+    authDisplayName: string;
   };
   pair: PairSummary | null;
 };

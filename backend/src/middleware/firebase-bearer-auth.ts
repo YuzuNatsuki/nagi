@@ -17,7 +17,7 @@ function firebaseAuthErrorHint(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
 
   if (code === "auth/id-token-expired") {
-    return "ログインの有効期限が切れました。もう一度ログインしてください。";
+    return "ログインの有効期限が切れました。もう一度ログインが必要です。";
   }
   if (
     code === "auth/argument-error" ||
@@ -25,7 +25,7 @@ function firebaseAuthErrorHint(err: unknown): string {
     msg.toLowerCase().includes("aud") ||
     msg.includes("audience")
   ) {
-    return "ID トークンとサーバの Firebase プロジェクトが一致していません。Cloud Run の環境変数 FIREBASE_PROJECT_ID を、フロントの VITE_FIREBASE_PROJECT_ID（Firebase コンソールのプロジェクト ID）と同じにしてください。";
+    return "ID トークンとサーバの Firebase プロジェクトが一致していません。Cloud Run の環境変数 FIREBASE_PROJECT_ID を、フロントの VITE_FIREBASE_PROJECT_ID（Firebase コンソールのプロジェクト ID）と同じ値に揃える必要があります。";
   }
   return "資格情報の確認に失敗しました";
 }
@@ -101,7 +101,7 @@ export function firebaseBearerAuthMiddleware(
           res,
           503,
           "auth_unavailable",
-          "Firebase を初期化できませんでした。FIREBASE_PROJECT_ID と認証情報（ローカルなら gcloud auth application-default login）を確認してください。",
+          "Firebase を初期化できませんでした。FIREBASE_PROJECT_ID と認証情報（ローカルなら gcloud auth application-default login）を確認すると切り分けしやすいです。",
         );
         return;
       }

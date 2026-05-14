@@ -13,7 +13,7 @@ function mapAuthError(err: unknown): string {
       return "すでに使われているメールアドレスです";
     }
     if (code === "auth/weak-password") {
-      return "パスワードは、もう少し長くしてください";
+      return "パスワードは、もう少し長いほうがよさそうです";
     }
   }
   return err instanceof Error ? err.message : "処理に失敗しました";

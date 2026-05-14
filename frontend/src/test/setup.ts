@@ -3,6 +3,8 @@ import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 
 let stubRedeemPendingPair = false;
+/** 画面遷移テスト用: `/api/me` などにアクティブなペアを返す（招待 redeem の pending より優先） */
+let stubMeActivePair = false;
 const stubMoodByDay: Record<string, { body: string; savedAt: string }> = {};
 const stubWhisperByDay: Record<string, { body: string; savedAt: string }> = {};
 type StubChatMsg = {
@@ -13,9 +15,11 @@ type StubChatMsg = {
   topicUserId: string | null;
 };
 let stubChatMessages: StubChatMsg[] = [];
+const stubNicknameByUserId = new Map<string, string | null>();
 
 afterEach(() => {
   stubRedeemPendingPair = false;
+  stubMeActivePair = false;
   for (const k of Object.keys(stubMoodByDay)) {
     delete stubMoodByDay[k];
   }
@@ -23,8 +27,43 @@ afterEach(() => {
     delete stubWhisperByDay[k];
   }
   stubChatMessages = [];
+  stubNicknameByUserId.clear();
   cleanup();
 });
+
+const STUB_PAIR_ACTIVE_ME = {
+  id: "pair_test",
+  displayName: "てすと",
+  yourRole: "owner" as const,
+  membershipState: "active" as const,
+  relationshipTag: "family" as const,
+};
+
+const STUB_PAIR_PENDING_ME = {
+  id: "pair_test",
+  displayName: "てすと",
+  yourRole: "member" as const,
+  membershipState: "pending_owner_approval" as const,
+  relationshipTag: "family" as const,
+};
+
+function stubPairForMeEndpoints():
+  | typeof STUB_PAIR_ACTIVE_ME
+  | typeof STUB_PAIR_PENDING_ME
+  | null {
+  if (stubMeActivePair) {
+    return STUB_PAIR_ACTIVE_ME;
+  }
+  if (stubRedeemPendingPair) {
+    return STUB_PAIR_PENDING_ME;
+  }
+  return null;
+}
+
+/** `phase1-navigation-flow` などから呼ぶ。`afterEach` でリセットされる。 */
+export function setStubMePairActiveForTests(enabled: boolean): void {
+  stubMeActivePair = enabled;
+}
 
 /** happy-dom では Vite プロキシが無いため、相対 `/api` が誤接続しないよう既定でスタブする */
 vi.stubGlobal(
@@ -83,16 +122,7 @@ vi.stubGlobal(
           { status: 401, headers: { "Content-Type": "application/json" } },
         );
       }
-      const pair =
-        stubRedeemPendingPair
-          ? {
-              id: "pair_test",
-              displayName: "てすと",
-              yourRole: "member" as const,
-              membershipState: "pending_owner_approval" as const,
-              relationshipTag: "family" as const,
-            }
-          : null;
+      const pair = stubPairForMeEndpoints();
       if (pair === null) {
         return new Response(JSON.stringify({ pairs: [], activePairId: null }), {
           status: 200,
@@ -127,6 +157,59 @@ vi.stubGlobal(
       );
     }
 
+    if (pathname === "/api/me/profile" && method === "PUT") {
+      const hasUser = (init?.headers as Headers | undefined)?.get?.("X-Nagi-User-Id") ?? null;
+      if (hasUser === null || hasUser === "") {
+        return new Response(
+          JSON.stringify({ error: { code: "unauthorized", message: "利用者がまだ選ばれていません" } }),
+          { status: 401, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      let body: unknown = {};
+      try {
+        body = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as unknown;
+      } catch {
+        body = {};
+      }
+      const rec = body as Record<string, unknown>;
+      if (!("nickname" in rec)) {
+        return new Response(
+          JSON.stringify({ error: { code: "validation_error", message: "nickname が必要です" } }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      const raw = rec.nickname;
+      if (raw !== null && typeof raw !== "string") {
+        return new Response(
+          JSON.stringify({ error: { code: "validation_error", message: "ニックネームを読み取れませんでした" } }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      const trimmed = typeof raw === "string" ? raw.trim() : "";
+      const nick = trimmed === "" ? null : trimmed;
+      if (nick !== null && nick.length > 40) {
+        return new Response(
+          JSON.stringify({ error: { code: "validation_error", message: "ニックネームが長すぎます" } }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (nick === null) {
+        stubNicknameByUserId.delete(hasUser);
+      } else {
+        stubNicknameByUserId.set(hasUser, nick);
+      }
+      const authLabel = "テスト";
+      const displayName = nick ?? authLabel;
+      const pair = stubPairForMeEndpoints();
+      return new Response(
+        JSON.stringify({
+          user: { id: hasUser, displayName, nickname: nick, authDisplayName: authLabel },
+          pair,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     if (pathname === "/api/me" && method === "GET") {
       const hasUser = (init?.headers as Headers | undefined)?.get?.("X-Nagi-User-Id") ?? null;
       if (hasUser === null || hasUser === "") {
@@ -136,20 +219,19 @@ vi.stubGlobal(
         );
       }
 
-      const pair =
-        stubRedeemPendingPair
-          ? {
-              id: "pair_test",
-              displayName: "てすと",
-              yourRole: "member" as const,
-              membershipState: "pending_owner_approval" as const,
-              relationshipTag: "family" as const,
-            }
-          : null;
+      const authLabel = "テスト";
+      const pair = stubPairForMeEndpoints();
+      const nick = stubNicknameByUserId.get(hasUser) ?? null;
+      const displayName = nick !== null && nick !== "" ? nick : authLabel;
 
       return new Response(
         JSON.stringify({
-          user: { id: hasUser, displayName: "テスト" },
+          user: {
+            id: hasUser,
+            displayName,
+            nickname: nick !== null && nick !== "" ? nick : null,
+            authDisplayName: authLabel,
+          },
           pair,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },

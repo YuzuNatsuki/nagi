@@ -1,4 +1,5 @@
 import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
+import { appendPairAuditLogSafe } from "./pair-audit-log.js";
 import type { RelationshipTagId } from "../in-memory/relationship-tags.js";
 import { isRelationshipTagId } from "../in-memory/relationship-tags.js";
 import { buildMoodDailyPromptPayload, moodDailyChoiceLine } from "../in-memory/pair-mood-prompts.js";
@@ -292,6 +293,13 @@ export async function createOwnedPair(
 
   await batch.commit();
 
+  await appendPairAuditLogSafe({
+    pairId,
+    type: "pair_created",
+    actorUserId: ownerUserId,
+    meta: { relationshipTag: input.relationshipTag },
+  });
+
   return {
     ok: true,
     pairId,
@@ -378,6 +386,11 @@ export async function redeemInviteCode(userId: string, rawCode: string): Promise
   if (result.tag === "fail") {
     return { ok: false, reason: result.reason };
   }
+  await appendPairAuditLogSafe({
+    pairId: result.summary.id,
+    type: "invite_redeemed",
+    actorUserId: userId,
+  });
   return { ok: true, pair: result.summary };
 }
 
@@ -470,6 +483,13 @@ export async function approvePendingMember(actorUserId: string, pairId: string, 
       },
       { merge: true },
     );
+  });
+
+  await appendPairAuditLogSafe({
+    pairId,
+    type: "member_approved",
+    actorUserId,
+    subjectUserId: memberUserId,
   });
 
   return { ok: true };
@@ -793,11 +813,13 @@ export async function listNotificationsForActor(actorUserId: string, pairId: str
     return { ok: false, reason: "forbidden" };
   }
   const col = notificationsCol(actorUserId, pairId);
-  let snap = await col.limit(1).get();
-  if (snap.empty) {
-    const seeds = deterministicSeedNotifications(pairId, pair.displayName);
+  const snap = await col.get();
+  const existingIds = new Set(snap.docs.map((d) => d.id));
+  const seeds = deterministicSeedNotifications(pairId, pair.displayName);
+  const missingSeeds = seeds.filter((s) => !existingIds.has(s.id));
+  if (missingSeeds.length > 0) {
     const batch = db().batch();
-    for (const s of seeds) {
+    for (const s of missingSeeds) {
       batch.set(col.doc(s.id), { headline: s.headline, body: s.body, createdAt: s.createdAt }, { merge: true });
     }
     await batch.commit();

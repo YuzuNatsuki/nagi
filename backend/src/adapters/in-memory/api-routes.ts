@@ -1,6 +1,11 @@
 import express, { type Request, type Response } from "express";
-import { upsertNagiUserProfileIfConfigured } from "../firestore/user-profile.js";
-import { listAnnouncementEntries } from "./announcements-store.js";
+import {
+  mergeUserDisplayForApi,
+  upsertNagiUserProfileIfConfigured,
+  validateNicknameInput,
+  writeUserNicknameIfConfigured,
+} from "../firestore/user-profile.js";
+import { listAnnouncementsForApi } from "../announcements-resolve.js";
 import { DUMMY_USERS, findDummyUserById } from "./dummy-users.js";
 import {
   applyMoodDailyChoiceForActor,
@@ -49,13 +54,14 @@ function registerHealth(r: express.Router): void {
 }
 
 function registerAnnouncements(r: express.Router): void {
-  r.get("/announcements", (req: Request, res: Response) => {
+  r.get("/announcements", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
       return;
     }
-    res.json({ announcements: listAnnouncementEntries() });
+    const announcements = await listAnnouncementsForApi();
+    res.json({ announcements });
   });
 }
 
@@ -118,11 +124,68 @@ function registerMe(r: express.Router): void {
     } catch (e) {
       console.warn("upsertNagiUserProfileIfConfigured", e);
     }
+    const merged = await mergeUserDisplayForApi(user);
     const pair = await getPairSummaryForUser(user.id);
     res.json({
       user: {
         id: user.id,
-        displayName: user.displayName,
+        displayName: merged.displayName,
+        nickname: merged.nickname,
+        authDisplayName: merged.authDisplayName,
+      },
+      pair,
+    });
+  });
+
+  r.put("/me/profile", async (req: Request, res: Response) => {
+    const user = req.nagiUser;
+    if (user === undefined) {
+      jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
+      return;
+    }
+
+    const body = req.body as unknown;
+    if (body === null || typeof body !== "object") {
+      jsonError(res, 400, "validation_error", "入力を読み取れませんでした");
+      return;
+    }
+    const record = body as Record<string, unknown>;
+    if (!("nickname" in record)) {
+      jsonError(res, 400, "validation_error", "nickname が必要です");
+      return;
+    }
+    const validated = validateNicknameInput(record.nickname);
+    if (!validated.ok) {
+      jsonError(res, 400, "validation_error", validated.message);
+      return;
+    }
+
+    try {
+      await writeUserNicknameIfConfigured(user.id, validated.value);
+    } catch (e) {
+      console.warn("writeUserNicknameIfConfigured", e);
+      jsonError(
+        res,
+        503,
+        "profile_unavailable",
+        "表示名を保存できませんでした。Firestore と認証情報を確認すると切り分けしやすいです。",
+      );
+      return;
+    }
+
+    try {
+      await upsertNagiUserProfileIfConfigured(user);
+    } catch (e) {
+      console.warn("upsertNagiUserProfileIfConfigured", e);
+    }
+    const merged = await mergeUserDisplayForApi(user);
+    const pair = await getPairSummaryForUser(user.id);
+    res.json({
+      user: {
+        id: user.id,
+        displayName: merged.displayName,
+        nickname: merged.nickname,
+        authDisplayName: merged.authDisplayName,
       },
       pair,
     });

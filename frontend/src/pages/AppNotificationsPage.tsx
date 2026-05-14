@@ -80,7 +80,9 @@ export function AppNotificationsPage(): ReactElement {
           ? `${first.headline} のかたちだけを、短く試し表示しています。`
           : "凪からの試し通知です。本文そのものの保存ではありません。";
       new Notification("凪", { body, lang: "ja" });
-      setBrowserNote("試し通知を送りました。見えない場合は、集中モードなどを確認してください。");
+      setBrowserNote(
+        "試し通知を送りました。見えない場合は、集中モードなどが通知を抑えていないかも、あわせて見ておくとよいです。",
+      );
     } catch (e) {
       setBrowserNote(e instanceof Error ? e.message : "通知を送れませんでした");
     }

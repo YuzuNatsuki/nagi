@@ -6,6 +6,8 @@ import { RELATIONSHIP_TAG_OPTIONS } from "../domain/relationship-tags.js";
 import { routeAfterMe } from "../lib/me-navigation.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
+const NICKNAME_MAX_CHARS = 40;
+
 function relationshipLabel(tag: PairSummary["relationshipTag"]): string {
   return RELATIONSHIP_TAG_OPTIONS.find((o) => o.id === tag)?.label ?? tag;
 }
@@ -24,6 +26,9 @@ export function AppSettingsPage(): ReactElement {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (!apiUserReady) {
@@ -81,7 +86,39 @@ export function AppSettingsPage(): ReactElement {
     };
   }, [api, navigate, apiUserReady, firebaseUid]);
 
+  useEffect(() => {
+    if (me !== null) {
+      setNicknameDraft(me.user.nickname ?? "");
+    }
+  }, [me]);
+
+  const saveNickname = useCallback(async () => {
+    if (!apiUserReady || me === null) {
+      return;
+    }
+    setProfileSaving(true);
+    setProfileMessage(null);
+    try {
+      const t = nicknameDraft.trim();
+      const res = await api.putJson<MeResponse>("/api/me/profile", {
+        nickname: t === "" ? null : t,
+      });
+      if (res.pair === null) {
+        navigate("/onboarding", { replace: true });
+        return;
+      }
+      setMe(res);
+      setProfileMessage("保存しました");
+    } catch (e) {
+      setProfileMessage(e instanceof Error ? e.message : "保存できませんでした");
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [api, apiUserReady, me, nicknameDraft, navigate]);
+
   const pair = me?.pair ?? null;
+  const normalizedDraft = nicknameDraft.trim() === "" ? null : nicknameDraft.trim();
+  const nicknameDirty = me !== null && normalizedDraft !== (me.user.nickname ?? null);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 transition-opacity duration-500">
@@ -113,8 +150,12 @@ export function AppSettingsPage(): ReactElement {
             </h2>
             <dl className="mt-4 max-w-prose space-y-3 text-sm text-ink/80">
               <div>
-                <dt className="text-xs text-ink/55">利用者の表示名</dt>
+                <dt className="text-xs text-ink/55">アプリでの表示名</dt>
                 <dd className="mt-1 text-ink">{me?.user.displayName}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-ink/55">認証アカウントの表示名</dt>
+                <dd className="mt-1 text-ink">{me?.user.authDisplayName}</dd>
               </div>
               <div>
                 <dt className="text-xs text-ink/55">ペアの呼び名</dt>
@@ -133,6 +174,51 @@ export function AppSettingsPage(): ReactElement {
                 <dd className="mt-1 text-ink">{membershipLabel(pair.membershipState)}</dd>
               </div>
             </dl>
+          </section>
+
+          <section aria-labelledby="settings-nickname-heading" className="max-w-prose">
+            <h2 id="settings-nickname-heading" className="text-sm font-medium text-ink/80">
+              ニックネーム
+            </h2>
+            <p className="mt-3 text-sm text-ink/70">
+              アプリ内であなたと呼ばれる名前です。空にして保存すると、認証アカウントの表示名に戻ります（最大{" "}
+              {NICKNAME_MAX_CHARS} 文字）。
+            </p>
+            <label htmlFor="settings-nickname-input" className="mt-5 block text-xs text-ink/55">
+              ニックネーム
+            </label>
+            <input
+              id="settings-nickname-input"
+              type="text"
+              autoComplete="nickname"
+              maxLength={NICKNAME_MAX_CHARS}
+              value={nicknameDraft}
+              onChange={(ev) => {
+                setProfileMessage(null);
+                setNicknameDraft(ev.target.value);
+              }}
+              className="mt-2 w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm text-ink shadow-sm outline-none transition-colors focus:border-indigo/40 focus:ring-1 focus:ring-indigo/30"
+            />
+            <p className="mt-1 text-xs text-ink/50">
+              {nicknameDraft.length}/{NICKNAME_MAX_CHARS}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="rounded-md bg-indigo px-4 py-2 text-sm font-medium text-paper transition-opacity duration-500 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={profileSaving || !nicknameDirty}
+                onClick={() => {
+                  void saveNickname();
+                }}
+              >
+                {profileSaving ? "保存中…" : "保存"}
+              </button>
+            </div>
+            {profileMessage !== null ? (
+              <p className="mt-3 text-sm text-ink/80" role="status">
+                {profileMessage}
+              </p>
+            ) : null}
           </section>
 
           <section aria-labelledby="settings-links-heading">
