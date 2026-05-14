@@ -10,7 +10,7 @@ import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingOwnerApprovePage(): ReactElement {
   const { pairId } = useParams();
-  const { userId, api } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [members, setMembers] = useState<PendingMembersResponseBody["members"]>([]);
   const [listError, setListError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ export function OnboardingOwnerApprovePage(): ReactElement {
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (pairId === undefined || pairId === "" || userId === null) {
+    if (pairId === undefined || pairId === "" || !apiUserReady) {
       return;
     }
     setLoading(true);
@@ -40,7 +40,7 @@ export function OnboardingOwnerApprovePage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, pairId, userId]);
+  }, [api, pairId, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void reload();
@@ -73,7 +73,7 @@ export function OnboardingOwnerApprovePage(): ReactElement {
         招待で入ってきた人だけが並びます。迷ったら、あとからでも大丈夫です。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、一覧が読み込まれます。
         </p>
@@ -97,7 +97,7 @@ export function OnboardingOwnerApprovePage(): ReactElement {
         <p className="mt-10 text-sm text-ink/60">ペア名: {me.pair.displayName}</p>
       ) : null}
 
-      {members.length === 0 && !loading && listError === null && userId !== null ? (
+      {members.length === 0 && !loading && listError === null && apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/70">いま、入り待ちはありません。</p>
       ) : null}
 

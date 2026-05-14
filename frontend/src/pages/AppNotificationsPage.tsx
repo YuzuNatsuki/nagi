@@ -21,7 +21,7 @@ function formatWhen(iso: string): string {
 }
 
 export function AppNotificationsPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [rows, setRows] = useState<NotificationHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,7 @@ export function AppNotificationsPage(): ReactElement {
   const [browserNote, setBrowserNote] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setRows([]);
       setError(null);
       return;
@@ -53,7 +53,7 @@ export function AppNotificationsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   useEffect(() => {
     void reload();
@@ -87,7 +87,7 @@ export function AppNotificationsPage(): ReactElement {
   }, [rows]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -112,7 +112,7 @@ export function AppNotificationsPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 transition-opacity duration-500">
@@ -122,7 +122,7 @@ export function AppNotificationsPage(): ReactElement {
         届いたメッセージのかたちだけが並びます。今日のメモやひとりごとメモの本文そのものは、ここには出しません。
       </p>
 
-      {userId !== null ? (
+      {apiUserReady ? (
         <section className="mt-10 rounded-lg border border-ink/10 bg-white px-5 py-5" aria-label="ブラウザ通知の試行">
           <h2 className="font-serif text-lg text-ink">ブラウザ通知の確認</h2>
           <p className="mt-3 max-w-prose text-sm text-ink/80">
@@ -143,7 +143,7 @@ export function AppNotificationsPage(): ReactElement {
         </section>
       ) : null}
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、一覧が読み込まれます。
         </p>
@@ -157,11 +157,11 @@ export function AppNotificationsPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && error === null && rows.length === 0 ? (
+      {!loading && apiUserReady && error === null && rows.length === 0 ? (
         <p className="mt-10 max-w-prose text-sm text-ink/70">いまは、表示できる通知がありません。</p>
       ) : null}
 
-      {!loading && userId !== null && error === null && rows.length > 0 ? (
+      {!loading && apiUserReady && error === null && rows.length > 0 ? (
         <ul className="mt-10 space-y-6">
           {rows.map((n) => (
             <li key={n.id} className="rounded-lg border border-ink/10 bg-white px-5 py-5">

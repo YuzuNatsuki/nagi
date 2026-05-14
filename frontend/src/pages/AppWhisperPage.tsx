@@ -22,7 +22,7 @@ function formatSavedAt(iso: string): string {
 }
 
 export function AppWhisperPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(() => localCalendarDay());
   const [draft, setDraft] = useState("");
@@ -34,7 +34,7 @@ export function AppWhisperPage(): ReactElement {
   const [savedHint, setSavedHint] = useState(false);
 
   const reload = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setDraft("");
       setSavedAt(null);
       setLoadError(null);
@@ -71,14 +71,14 @@ export function AppWhisperPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId, selectedDate]);
+  }, [api, navigate, userId, firebaseUid, selectedDate]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -103,10 +103,10 @@ export function AppWhisperPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   async function onSave(): Promise<void> {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     setSaving(true);
@@ -140,7 +140,7 @@ export function AppWhisperPage(): ReactElement {
         声に出さないほうのメモです。日ごとに別のかたちで残ります。ペアのほかの人からは、本文そのものは見えません。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、保存した内容が読み込まれます。
         </p>
@@ -154,7 +154,7 @@ export function AppWhisperPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && loadError === null ? (
+      {!loading && apiUserReady && loadError === null ? (
         <div className="mt-10">
           <label htmlFor="whisper-date" className="block text-xs text-ink/60">
             書き留める日

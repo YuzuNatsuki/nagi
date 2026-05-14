@@ -6,11 +6,11 @@ import { routeAfterMe } from "../lib/me-navigation.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingChoicePage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -30,9 +30,9 @@ export function OnboardingChoicePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
-  const canNavigate = userId !== null;
+  const canNavigate = apiUserReady;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 transition-opacity duration-500">
@@ -75,7 +75,7 @@ export function OnboardingChoicePage(): ReactElement {
         </li>
       </ul>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、この先の画面へ進めます。
         </p>

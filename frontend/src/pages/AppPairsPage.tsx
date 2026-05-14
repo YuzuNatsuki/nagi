@@ -14,7 +14,7 @@ function stateLabel(state: PairSummary["membershipState"]): string {
 }
 
 export function AppPairsPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [rows, setRows] = useState<PairSummary[]>([]);
   const [activePairId, setActivePairId] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export function AppPairsPage(): ReactElement {
   const [busyPairId, setBusyPairId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setRows([]);
       setActivePairId(null);
       setError(null);
@@ -42,14 +42,14 @@ export function AppPairsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, userId]);
+  }, [api, userId, firebaseUid]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -74,7 +74,7 @@ export function AppPairsPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   const onSelect = useCallback(
     async (pairId: string) => {
@@ -105,7 +105,7 @@ export function AppPairsPage(): ReactElement {
         いま開いているペアだけが、あとから置く入口の前提になります。切り替えは、落ち着いたタイミングで十分です。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、一覧が読み込まれます。
         </p>
@@ -119,7 +119,7 @@ export function AppPairsPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && rows.length === 0 && error === null ? (
+      {!loading && apiUserReady && rows.length === 0 && error === null ? (
         <p className="mt-10 max-w-prose text-sm text-ink/70">
           まだペアがありません。{" "}
           <Link

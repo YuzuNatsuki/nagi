@@ -28,7 +28,7 @@ function formatTime(iso: string): string {
 }
 
 export function AppChatPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [members, setMembers] = useState<PairMembersResponseBody["members"]>([]);
   const [topicUserId, setTopicUserId] = useState("");
@@ -41,7 +41,7 @@ export function AppChatPage(): ReactElement {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const reloadMessages = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setMessages([]);
       setMembers([]);
       setLoadError(null);
@@ -71,14 +71,14 @@ export function AppChatPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   useEffect(() => {
     void reloadMessages();
   }, [reloadMessages]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -103,14 +103,14 @@ export function AppChatPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   async function onSend(): Promise<void> {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     setSending(true);
@@ -142,13 +142,13 @@ export function AppChatPage(): ReactElement {
         通知のかわりにはなりません。落ち着いたときに、短く話しかけるための場所です。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、会話が読み込まれます。
         </p>
       ) : null}
 
-      {!loading && userId !== null && loadError === null ? (
+      {!loading && apiUserReady && loadError === null ? (
         <div className="mt-8">
           <label htmlFor="chat-topic" className="block text-xs text-ink/60">
             話題にする人
@@ -179,7 +179,7 @@ export function AppChatPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && loadError === null ? (
+      {!loading && apiUserReady && loadError === null ? (
         <div className="mt-8 flex max-h-[28rem] flex-col rounded-lg border border-ink/10 bg-paper/80">
           <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
             {messages.length === 0 ? (

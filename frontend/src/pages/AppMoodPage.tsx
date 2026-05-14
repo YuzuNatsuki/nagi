@@ -28,7 +28,7 @@ function formatSavedAt(iso: string): string {
 }
 
 export function AppMoodPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(() => localCalendarDay());
   const [draft, setDraft] = useState("");
@@ -44,7 +44,7 @@ export function AppMoodPage(): ReactElement {
   const [dailyFeedback, setDailyFeedback] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setDraft("");
       setSavedAt(null);
       setLoadError(null);
@@ -97,14 +97,14 @@ export function AppMoodPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId, selectedDate]);
+  }, [api, navigate, userId, firebaseUid, selectedDate]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -129,10 +129,10 @@ export function AppMoodPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   async function onSave(): Promise<void> {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     setSaving(true);
@@ -160,7 +160,7 @@ export function AppMoodPage(): ReactElement {
   }
 
   async function onDailyChoice(choiceId: string): Promise<void> {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     setDailyChoiceBusy(true);
@@ -195,7 +195,7 @@ export function AppMoodPage(): ReactElement {
         いまの気持ちや体調を、日ごとに残す場所です。下の質問に、ボタンだけで答えて追記することもできます。ペアのほかの人からは、本文そのものは見えません。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、保存した内容が読み込まれます。
         </p>
@@ -209,7 +209,7 @@ export function AppMoodPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && loadError === null ? (
+      {!loading && apiUserReady && loadError === null ? (
         <div className="mt-10">
           <label htmlFor="mood-date" className="block text-xs text-ink/60">
             書き留める日

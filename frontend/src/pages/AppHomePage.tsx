@@ -95,14 +95,14 @@ function TileGrid({
 }
 
 export function AppHomePage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { api, apiUserReady, firebaseUid, userId } = useDevUser();
   const navigate = useNavigate();
   const [approvalPairId, setApprovalPairId] = useState<string | null>(null);
   const [homeMe, setHomeMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setApprovalPairId(null);
       setHomeMe(null);
       setLoading(false);
@@ -160,18 +160,18 @@ export function AppHomePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12 transition-opacity duration-500 md:py-16">
       <header>
         <h1 className="font-serif text-3xl tracking-tight text-ink md:text-4xl">凪</h1>
-        {userId === null ? (
+        {!apiUserReady ? (
           <p className="mt-6 max-w-prose text-ink/75">
             開発では、上のバーで利用者を選ぶと、ペアのようすが読み込まれます。
           </p>
         ) : null}
-        {loading && userId !== null ? (
+        {loading && apiUserReady ? (
           <p className="mt-6 text-sm text-ink/60">読み込み中です</p>
         ) : null}
         {!loading && homeMe !== null && homeMe.pair !== null ? (
@@ -182,7 +182,7 @@ export function AppHomePage(): ReactElement {
             としてつながっています。
           </p>
         ) : null}
-        {!loading && userId !== null && homeMe === null ? (
+        {!loading && apiUserReady && homeMe === null ? (
           <p className="mt-6 max-w-prose text-sm text-ink/65">ようすを読み取れませんでした。少し待ってから、もう一度試せます。</p>
         ) : null}
         <p className="mt-4 max-w-prose text-sm text-ink/60">
@@ -207,7 +207,7 @@ export function AppHomePage(): ReactElement {
         </div>
       ) : null}
 
-      {userId !== null && homeMe !== null ? (
+      {apiUserReady && homeMe !== null ? (
         <>
           <TileGrid title="いま、手を伸ばせるところ" sectionId="now" items={tilesNow} />
           <TileGrid title="振り返り" sectionId="look-back" items={tilesLookBack} />

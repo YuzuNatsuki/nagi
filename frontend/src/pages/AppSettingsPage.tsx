@@ -19,14 +19,14 @@ function membershipLabel(state: PairSummary["membershipState"]): string {
 }
 
 export function AppSettingsPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setMe(null);
       setLoadError(null);
       return;
@@ -47,14 +47,14 @@ export function AppSettingsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -79,7 +79,7 @@ export function AppSettingsPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   const pair = me?.pair ?? null;
 
@@ -91,7 +91,7 @@ export function AppSettingsPage(): ReactElement {
         いまの呼び名と、細かなところへ進む道しるべです。変更はそれぞれの画面から行えます。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、内容が読み込まれます。
         </p>
@@ -105,7 +105,7 @@ export function AppSettingsPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && loadError === null && pair !== null ? (
+      {!loading && apiUserReady && loadError === null && pair !== null ? (
         <div className="mt-10 space-y-10">
           <section aria-labelledby="settings-summary-heading">
             <h2 id="settings-summary-heading" className="text-sm font-medium text-ink/80">

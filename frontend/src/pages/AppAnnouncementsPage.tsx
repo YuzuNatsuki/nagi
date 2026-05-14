@@ -19,13 +19,13 @@ function formatPublished(iso: string): string {
 }
 
 export function AppAnnouncementsPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const [rows, setRows] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setRows([]);
       setError(null);
       return;
@@ -41,7 +41,7 @@ export function AppAnnouncementsPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, userId]);
+  }, [api, userId, firebaseUid]);
 
   useEffect(() => {
     void reload();
@@ -55,7 +55,7 @@ export function AppAnnouncementsPage(): ReactElement {
         運営からの短い便りです。ペアの有無とは別に、同じ内容が届きます。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、一覧が読み込まれます。
         </p>
@@ -69,11 +69,11 @@ export function AppAnnouncementsPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && error === null && rows.length === 0 ? (
+      {!loading && apiUserReady && error === null && rows.length === 0 ? (
         <p className="mt-10 max-w-prose text-sm text-ink/70">いまは、表示できるお知らせがありません。</p>
       ) : null}
 
-      {!loading && userId !== null && error === null && rows.length > 0 ? (
+      {!loading && apiUserReady && error === null && rows.length > 0 ? (
         <ul className="mt-10 space-y-8">
           {rows.map((a) => (
             <li key={a.id} className="rounded-lg border border-ink/10 bg-white px-5 py-5">

@@ -14,7 +14,7 @@ function formatExpiresAt(iso: string): string {
 
 export function OnboardingPairInvitePage(): ReactElement {
   const { pairId } = useParams();
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [data, setData] = useState<PairInviteResponseBody | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function OnboardingPairInvitePage(): ReactElement {
   const [copyState, setCopyState] = useState<"idle" | "done" | "failed">("idle");
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setMe(null);
       return;
     }
@@ -42,14 +42,14 @@ export function OnboardingPairInvitePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, userId]);
+  }, [api, userId, firebaseUid]);
 
   useEffect(() => {
     if (pairId === undefined || pairId === "") {
       setError("ペアが見つかりません");
       return;
     }
-    if (userId === null) {
+    if (!apiUserReady) {
       setData(null);
       setError(null);
       return;
@@ -77,7 +77,7 @@ export function OnboardingPairInvitePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, pairId, userId]);
+  }, [api, pairId, userId, firebaseUid]);
 
   const onCopy = useCallback(async () => {
     if (data === null) {
@@ -115,7 +115,7 @@ export function OnboardingPairInvitePage(): ReactElement {
         このコードは、あなたのペアへ入るための入口です。24 時間ほどで失いやすくなります。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、コードが読み込まれます。
         </p>

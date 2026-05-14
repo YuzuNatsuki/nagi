@@ -9,8 +9,8 @@ import { routeAfterMe } from "../lib/me-navigation.js";
 type GateState = "idle_no_user" | "loading" | "fallback";
 
 export function RootIndexPage(): ReactElement {
-  const { userId, api } = useDevUser();
-  const { firebaseEnabled, authReady, user: fbUser } = useAuth();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
+  const { firebaseEnabled, authReady } = useAuth();
   const navigate = useNavigate();
   const [gate, setGate] = useState<GateState>("idle_no_user");
 
@@ -19,9 +19,7 @@ export function RootIndexPage(): ReactElement {
       return;
     }
 
-    const hasIdentity = firebaseEnabled ? fbUser !== null || userId !== null : userId !== null;
-
-    if (!hasIdentity) {
+    if (!apiUserReady) {
       setGate("idle_no_user");
       return;
     }
@@ -49,7 +47,7 @@ export function RootIndexPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId, firebaseEnabled, authReady, fbUser]);
+  }, [api, navigate, apiUserReady, firebaseUid, firebaseEnabled, authReady]);
 
   if (firebaseEnabled && !authReady) {
     return (

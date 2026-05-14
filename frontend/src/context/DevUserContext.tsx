@@ -14,15 +14,25 @@ type DevUserContextValue = {
   userId: string | null;
   setUserId: (id: string | null) => void;
   api: ApiClient;
+  /**
+   * Phase 1 のダミー利用者が選ばれているか、Phase 2 の Firebase にログイン済みなら true。
+   * 各画面の `/api/me` 取得などはこれでガードする（Firebase 時は userId は null のまま）。
+   */
+  apiUserReady: boolean;
+  /** Firebase ログイン時の UID。未ログインなら null。useEffect の依存に含める。 */
+  firebaseUid: string | null;
 };
 
 const DevUserContext = createContext<DevUserContextValue | null>(null);
 
 export function DevUserProvider({ children }: { children: ReactNode }): ReactElement {
   const [userId, setUserId] = useState<string | null>(null);
-  const { getFirebaseIdToken, firebaseEnabled } = useAuth();
+  const { getFirebaseIdToken, firebaseEnabled, user: fbUser } = useAuth();
 
   const getUserId = useCallback(() => userId, [userId]);
+
+  const firebaseUid = fbUser?.uid ?? null;
+  const apiUserReady = userId !== null || firebaseUid !== null;
 
   const api = useMemo(
     () =>
@@ -39,8 +49,10 @@ export function DevUserProvider({ children }: { children: ReactNode }): ReactEle
       userId,
       setUserId,
       api,
+      apiUserReady,
+      firebaseUid,
     }),
-    [userId, api],
+    [userId, api, apiUserReady, firebaseUid],
   );
 
   return <DevUserContext.Provider value={value}>{children}</DevUserContext.Provider>;

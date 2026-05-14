@@ -6,14 +6,14 @@ import { routeAfterMe } from "../lib/me-navigation.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingEnterInvitePage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -33,12 +33,12 @@ export function OnboardingEnterInvitePage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   async function onSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
     setFormError(null);
-    if (userId === null) {
+    if (!apiUserReady) {
       setFormError("利用者がまだ選ばれていません");
       return;
     }

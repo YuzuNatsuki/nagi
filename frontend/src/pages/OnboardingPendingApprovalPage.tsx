@@ -6,13 +6,13 @@ import { routeAfterMe } from "../lib/me-navigation.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingPendingApprovalPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [me, setMe] = useState<MeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadMe = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setMe(null);
       setError(null);
       return;
@@ -31,14 +31,14 @@ export function OnboardingPendingApprovalPage(): ReactElement {
       setMe(null);
       setError(e instanceof Error ? e.message : "読み取れませんでした");
     }
-  }, [api, navigate, userId]);
+  }, [api, navigate, apiUserReady, firebaseUid]);
 
   useEffect(() => {
     void loadMe();
   }, [loadMe]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     const id = window.setInterval(() => {
@@ -47,7 +47,7 @@ export function OnboardingPendingApprovalPage(): ReactElement {
     return () => {
       window.clearInterval(id);
     };
-  }, [loadMe, userId]);
+  }, [loadMe, apiUserReady, firebaseUid]);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-16 transition-opacity duration-500">
@@ -57,7 +57,7 @@ export function OnboardingPendingApprovalPage(): ReactElement {
         いまは、ペアのオーナー側の確認待ちです。通知が届く前提にはせず、落ち着いたタイミングで見てもらえれば十分です。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、状態が読み込まれます。
         </p>

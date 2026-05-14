@@ -6,7 +6,7 @@ import { RELATIONSHIP_TAG_OPTIONS } from "../domain/relationship-tags.js";
 import { useDevUser } from "../context/DevUserContext.js";
 
 export function OnboardingCreatePairPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [pairDisplayName, setPairDisplayName] = useState("");
   const [relationshipTag, setRelationshipTag] = useState<RelationshipTagId>("family");
@@ -14,7 +14,7 @@ export function OnboardingCreatePairPage(): ReactElement {
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -34,12 +34,12 @@ export function OnboardingCreatePairPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   async function onSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
     setFormError(null);
-    if (userId === null) {
+    if (!apiUserReady) {
       setFormError("利用者がまだ選ばれていません");
       return;
     }

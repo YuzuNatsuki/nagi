@@ -38,7 +38,7 @@ const retentionChoices: { value: ChatRetentionChoice; title: string; note: strin
 ];
 
 export function AppMembersPage(): ReactElement {
-  const { userId, api } = useDevUser();
+  const { userId, api, apiUserReady, firebaseUid } = useDevUser();
   const navigate = useNavigate();
   const [members, setMembers] = useState<PairMembersResponseBody["members"]>([]);
   const [chatRetention, setChatRetention] = useState<ChatRetentionChoice>("30days");
@@ -50,7 +50,7 @@ export function AppMembersPage(): ReactElement {
   const [savedHint, setSavedHint] = useState(false);
 
   const reload = useCallback(async () => {
-    if (userId === null) {
+    if (!apiUserReady) {
       setMembers([]);
       setLoadError(null);
       return;
@@ -79,14 +79,14 @@ export function AppMembersPage(): ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
   useEffect(() => {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     let cancelled = false;
@@ -111,10 +111,10 @@ export function AppMembersPage(): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [api, navigate, userId]);
+  }, [api, navigate, userId, firebaseUid]);
 
   async function onSave(): Promise<void> {
-    if (userId === null) {
+    if (!apiUserReady) {
       return;
     }
     setSaving(true);
@@ -149,7 +149,7 @@ export function AppMembersPage(): ReactElement {
         いま開いているペアの人たちと、あなただけの保存のしかたです。迷ったら、あとから変えても大丈夫です。
       </p>
 
-      {userId === null ? (
+      {!apiUserReady ? (
         <p className="mt-10 max-w-prose text-sm text-ink/60">
           開発では、上のバーで利用者を選ぶと、一覧が読み込まれます。
         </p>
@@ -163,7 +163,7 @@ export function AppMembersPage(): ReactElement {
         </p>
       ) : null}
 
-      {!loading && userId !== null && loadError === null ? (
+      {!loading && apiUserReady && loadError === null ? (
         <>
           <section className="mt-12">
             <h2 className="font-serif text-lg text-ink">このペアの人たち</h2>

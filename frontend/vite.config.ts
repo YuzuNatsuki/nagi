@@ -16,5 +16,12 @@ export default defineConfig({
     environment: "happy-dom",
     setupFiles: "./src/test/setup.ts",
     globals: true,
+    /** 開発者の .env に Firebase があっても、RTL はダミー利用者前提で安定させる */
+    env: {
+      VITE_FIREBASE_API_KEY: "",
+      VITE_FIREBASE_AUTH_DOMAIN: "",
+      VITE_FIREBASE_PROJECT_ID: "",
+      VITE_FIREBASE_APP_ID: "",
+    },
   },
 });
