@@ -60,21 +60,21 @@ function registerAnnouncements(r: express.Router): void {
 }
 
 function registerMe(r: express.Router): void {
-  r.get("/me/pairs", (req: Request, res: Response) => {
+  r.get("/me/pairs", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
       return;
     }
-    const pairs = listPairSummariesForUser(user.id);
-    const active = getPairSummaryForUser(user.id);
+    const pairs = await listPairSummariesForUser(user.id);
+    const active = await getPairSummaryForUser(user.id);
     res.json({
       pairs,
       activePairId: active?.id ?? null,
     });
   });
 
-  r.put("/me/active-pair", (req: Request, res: Response) => {
+  r.put("/me/active-pair", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -92,13 +92,13 @@ function registerMe(r: express.Router): void {
       return;
     }
 
-    const switched = setActivePairForUser(user.id, pairIdRaw.trim());
+    const switched = await setActivePairForUser(user.id, pairIdRaw.trim());
     if (!switched.ok) {
       jsonError(res, 403, "forbidden", "そのペアには、まだ入っていません");
       return;
     }
 
-    const pair = getPairSummaryForUser(user.id);
+    const pair = await getPairSummaryForUser(user.id);
     if (pair === null) {
       jsonError(res, 500, "internal_error", "切り替え直後の状態を読み取れませんでした");
       return;
@@ -118,7 +118,7 @@ function registerMe(r: express.Router): void {
     } catch (e) {
       console.warn("upsertNagiUserProfileIfConfigured", e);
     }
-    const pair = getPairSummaryForUser(user.id);
+    const pair = await getPairSummaryForUser(user.id);
     res.json({
       user: {
         id: user.id,
@@ -131,7 +131,7 @@ function registerMe(r: express.Router): void {
 
 /** Phase 1 専用: フロントのダミー利用者切替と一覧を同期する */
 function registerInvites(r: express.Router): void {
-  r.post("/invites/redeem", (req: Request, res: Response) => {
+  r.post("/invites/redeem", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -156,7 +156,7 @@ function registerInvites(r: express.Router): void {
       return;
     }
 
-    const result = redeemInviteCode(user.id, codeRaw);
+    const result = await redeemInviteCode(user.id, codeRaw);
     if (!result.ok) {
       if (result.reason === "already_in_this_pair") {
         jsonError(res, 409, "conflict", "すでにこのペアに入っています");
@@ -211,7 +211,7 @@ function isChatRetentionChoice(value: unknown): value is "none" | "30days" | "90
 }
 
 function registerPairs(r: express.Router): void {
-  r.post("/pairs", (req: Request, res: Response) => {
+  r.post("/pairs", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -248,7 +248,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const created = createOwnedPair(user.id, {
+    const created = await createOwnedPair(user.id, {
       pairDisplayName,
       relationshipTag: relationshipTagRaw,
     });
@@ -258,7 +258,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const pair = getPairSummaryForUser(user.id);
+    const pair = await getPairSummaryForUser(user.id);
     if (pair === null) {
       jsonError(res, 500, "internal_error", "作成直後の状態を読み取れませんでした");
       return;
@@ -273,7 +273,7 @@ function registerPairs(r: express.Router): void {
     });
   });
 
-  r.get("/pairs/:pairId/members", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/members", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -286,7 +286,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const listed = listPairMembersForActor(user.id, pairId);
+    const listed = await listPairMembersForActor(user.id, pairId);
     if (!listed.ok) {
       if (listed.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -306,7 +306,7 @@ function registerPairs(r: express.Router): void {
     res.json({ members });
   });
 
-  r.get("/pairs/:pairId/settings/privacy", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/settings/privacy", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -319,7 +319,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const privacy = getPairPrivacySettingsForActor(user.id, pairId);
+    const privacy = await getPairPrivacySettingsForActor(user.id, pairId);
     if (!privacy.ok) {
       if (privacy.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -332,7 +332,7 @@ function registerPairs(r: express.Router): void {
     res.json({ chatRetention: privacy.chatRetention });
   });
 
-  r.put("/pairs/:pairId/settings/privacy", (req: Request, res: Response) => {
+  r.put("/pairs/:pairId/settings/privacy", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -356,7 +356,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const updated = setPairPrivacySettingsForActor(user.id, pairId, chatRetentionRaw);
+    const updated = await setPairPrivacySettingsForActor(user.id, pairId, chatRetentionRaw);
     if (!updated.ok) {
       if (updated.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -369,7 +369,7 @@ function registerPairs(r: express.Router): void {
     res.json({ chatRetention: updated.chatRetention });
   });
 
-  r.get("/pairs/:pairId/mood/daily-prompt", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/mood/daily-prompt", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -389,7 +389,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const got = getMoodDailyPromptForActor(user.id, pairId, resolved.dayKey);
+    const got = await getMoodDailyPromptForActor(user.id, pairId, resolved.dayKey);
     if (!got.ok) {
       if (got.reason === "validation_error") {
         jsonError(res, 400, "validation_error", "日付を読み取れませんでした");
@@ -411,7 +411,7 @@ function registerPairs(r: express.Router): void {
     });
   });
 
-  r.post("/pairs/:pairId/mood/daily-choice", (req: Request, res: Response) => {
+  r.post("/pairs/:pairId/mood/daily-choice", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -442,7 +442,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const saved = applyMoodDailyChoiceForActor(user.id, pairId, dateResolved.dayKey, choiceRaw);
+    const saved = await applyMoodDailyChoiceForActor(user.id, pairId, dateResolved.dayKey, choiceRaw);
     if (!saved.ok) {
       if (saved.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -459,7 +459,7 @@ function registerPairs(r: express.Router): void {
     res.status(201).json({ mood: saved.mood });
   });
 
-  r.get("/pairs/:pairId/mood", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/mood", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -479,7 +479,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const got = getMyMoodForPair(user.id, pairId, resolved.dayKey);
+    const got = await getMyMoodForPair(user.id, pairId, resolved.dayKey);
     if (!got.ok) {
       if (got.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -492,7 +492,7 @@ function registerPairs(r: express.Router): void {
     res.json({ date: got.dayKey, mood: got.mood });
   });
 
-  r.put("/pairs/:pairId/mood", (req: Request, res: Response) => {
+  r.put("/pairs/:pairId/mood", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -522,7 +522,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const saved = saveMyMoodForPair(user.id, pairId, dateResolved.dayKey, bodyRaw);
+    const saved = await saveMyMoodForPair(user.id, pairId, dateResolved.dayKey, bodyRaw);
     if (!saved.ok) {
       if (saved.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -543,7 +543,7 @@ function registerPairs(r: express.Router): void {
     res.json({ mood: saved.mood });
   });
 
-  r.get("/pairs/:pairId/whisper", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/whisper", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -563,7 +563,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const got = getMyWhisperForPair(user.id, pairId, resolved.dayKey);
+    const got = await getMyWhisperForPair(user.id, pairId, resolved.dayKey);
     if (!got.ok) {
       if (got.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -576,7 +576,7 @@ function registerPairs(r: express.Router): void {
     res.json({ date: got.dayKey, whisper: got.whisper });
   });
 
-  r.put("/pairs/:pairId/whisper", (req: Request, res: Response) => {
+  r.put("/pairs/:pairId/whisper", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -606,7 +606,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const saved = saveMyWhisperForPair(user.id, pairId, dateResolved.dayKey, bodyRaw);
+    const saved = await saveMyWhisperForPair(user.id, pairId, dateResolved.dayKey, bodyRaw);
     if (!saved.ok) {
       if (saved.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -627,7 +627,7 @@ function registerPairs(r: express.Router): void {
     res.json({ whisper: saved.whisper });
   });
 
-  r.get("/pairs/:pairId/notifications", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/notifications", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -640,7 +640,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const listed = listNotificationsForActor(user.id, pairId);
+    const listed = await listNotificationsForActor(user.id, pairId);
     if (!listed.ok) {
       if (listed.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -653,7 +653,7 @@ function registerPairs(r: express.Router): void {
     res.json({ notifications: listed.notifications });
   });
 
-  r.get("/pairs/:pairId/chat/messages", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/chat/messages", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -666,7 +666,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const listed = listChatMessagesForActor(user.id, pairId);
+    const listed = await listChatMessagesForActor(user.id, pairId);
     if (!listed.ok) {
       if (listed.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -679,7 +679,7 @@ function registerPairs(r: express.Router): void {
     res.json({ messages: listed.messages });
   });
 
-  r.post("/pairs/:pairId/chat/messages", (req: Request, res: Response) => {
+  r.post("/pairs/:pairId/chat/messages", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -712,7 +712,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const posted = postChatMessageForActor(user.id, pairId, textRaw, topicUserId);
+    const posted = await postChatMessageForActor(user.id, pairId, textRaw, topicUserId);
     if (!posted.ok) {
       if (posted.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -737,7 +737,7 @@ function registerPairs(r: express.Router): void {
     res.status(201).json({ messages: posted.messages });
   });
 
-  r.get("/pairs/:pairId/pending-members", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/pending-members", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -750,7 +750,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const listed = listPendingMemberUserIdsForPair(pairId, user.id);
+    const listed = await listPendingMemberUserIdsForPair(pairId, user.id);
     if (!listed.ok) {
       if (listed.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -771,7 +771,7 @@ function registerPairs(r: express.Router): void {
     res.json({ members });
   });
 
-  r.post("/pairs/:pairId/members/:memberUserId/approve", (req: Request, res: Response) => {
+  r.post("/pairs/:pairId/members/:memberUserId/approve", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -785,7 +785,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const approved = approvePendingMember(user.id, pairId, memberUserId);
+    const approved = await approvePendingMember(user.id, pairId, memberUserId);
     if (!approved.ok) {
       if (approved.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
@@ -802,7 +802,7 @@ function registerPairs(r: express.Router): void {
     res.status(200).json({ ok: true as const });
   });
 
-  r.get("/pairs/:pairId/invite", (req: Request, res: Response) => {
+  r.get("/pairs/:pairId/invite", async (req: Request, res: Response) => {
     const user = req.nagiUser;
     if (user === undefined) {
       jsonError(res, 401, "unauthorized", "利用者がまだ選ばれていません");
@@ -815,7 +815,7 @@ function registerPairs(r: express.Router): void {
       return;
     }
 
-    const inv = getActiveInviteForPairOwner(pairId, user.id);
+    const inv = await getActiveInviteForPairOwner(pairId, user.id);
     if (!inv.ok) {
       if (inv.reason === "forbidden") {
         jsonError(res, 403, "forbidden", "この操作には入れません");
